@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Encontre empresas e serviços perto de você no Procure Aonde." />
+    <title>Procure Aonde — Encontre o que você precisa</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <button class="services-toggle" data-action="toggle-services" aria-expanded="false" aria-controls="services-drawer">
+        <span class="services-toggle-icon" aria-hidden="true">☰</span>
+        <span>Serviços</span>
+      </button>
+      <a class="brand" href="#" data-action="home" aria-label="Procure Aonde - início">
+        <span class="brand-mark">P</span>
+        <span>Procure Aonde</span>
+      </a>
+      <form class="header-search" id="header-search-form" role="search">
+        <label class="sr-only" for="header-query">Pesquisar empresas ou serviços</label>
+        <span aria-hidden="true">⌕</span>
+        <input id="header-query" type="search" placeholder="Pesquise empresas, serviços..." />
+      </form>
+      <nav class="header-nav" aria-label="Navegação principal">
+        <a class="link-button" href="htmladm.html">Para empresas</a>
+        <a class="outline-button" href="htmladm.html">Entrar / cadastrar</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-content">
+          <p class="eyebrow">Descubra negócios locais</p>
+          <h1 id="hero-title">Encontre o que você precisa, perto de você.</h1>
+          <p class="hero-subtitle">Descubra, conecte-se e contrate serviços de empresas de confiança.</p>
+          <form class="hero-search" id="hero-search-form" role="search">
+            <div class="search-field">
+              <span aria-hidden="true">⌕</span>
+              <label class="sr-only" for="hero-query">O que você está procurando?</label>
+              <input id="hero-query" type="search" placeholder="O que você está procurando?" />
+            </div>
+            <div class="search-field location-field">
+              <span aria-hidden="true">⌖</span>
+              <label class="sr-only" for="hero-location">Onde?</label>
+              <input id="hero-location" type="search" placeholder="Cidade ou bairro" />
+            </div>
+            <button class="primary-button" type="submit">Pesquisar</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="results-section page-section" id="results" aria-labelledby="results-title">
+        <div class="section-heading results-heading">
+          <div>
+            <p class="eyebrow purple">Recomendados para você</p>
+            <h2 id="results-title">Empresas em destaque</h2>
+          </div>
+          <label class="sort-control">Ordenar por
+            <select id="sort-select">
+              <option value="relevance">Relevância</option>
+              <option value="clicks">Mais acessados</option>
+              <option value="recent">Mais recentes</option>
+            </select>
+          </label>
+        </div>
+        <div class="active-filters" id="active-filters" aria-live="polite"></div>
+        <div class="business-grid" id="business-grid"></div>
+      </section>
+
+      <section class="business-cta page-section">
+        <div>
+          <p class="eyebrow">Tem um negócio?</p>
+          <h2>Faça sua empresa ser encontrada.</h2>
+          <p>Cadastre seus serviços gratuitamente e acompanhe o interesse dos seus clientes.</p>
+        </div>
+        <a class="primary-button" href="htmladm.html">Cadastrar minha empresa <span aria-hidden="true">→</span></a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand" href="#" data-action="home"><span class="brand-mark">P</span><span>Procure Aonde</span></a>
+      <p>Conectando você ao comércio local.</p>
+      <span>© 2026 Procure Aonde</span>
+    </footer>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside class="services-drawer" id="services-drawer" aria-labelledby="services-title" aria-hidden="true">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow purple">Encontre mais rápido</p>
+          <h2 id="services-title">Serviços</h2>
+        </div>
+        <button class="icon-button" data-action="close-services" aria-label="Fechar serviços">×</button>
+      </div>
+      <div class="drawer-list" id="drawer-list"></div>
+    </aside>
+
+    <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+    <section class="modal" id="business-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+      <button class="modal-close icon-button" data-action="close-modal" aria-label="Fechar detalhes">×</button>
+      <div id="modal-content"></div>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>

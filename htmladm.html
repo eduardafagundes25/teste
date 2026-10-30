@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Área para empresários cadastrarem e acompanharem seus anúncios." />
+    <title>Procure Aonde — Área empresarial</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="admin">
+    <section class="admin-view" id="admin-view">
+      <div class="admin-shell">
+        <header class="admin-header">
+          <a class="brand" href="index.html"><span class="brand-mark">P</span><span>Procure Aonde</span></a>
+          <a class="link-button" href="index.html">← Voltar ao site</a>
+        </header>
+        <div class="admin-layout">
+          <aside class="admin-sidebar">
+            <p class="eyebrow purple">Área do empresário</p>
+            <h1>Seu negócio em destaque.</h1>
+            <p>Gerencie seu anúncio e veja como as pessoas encontram sua empresa.</p>
+            <div class="admin-sidebar-note">Os dados desta demonstração ficam salvos neste navegador.</div>
+          </aside>
+          <main class="admin-main">
+            <div class="admin-title-row">
+              <div><p class="eyebrow purple">Painel</p><h2>Visão geral</h2></div>
+              <div class="admin-actions"><button class="outline-button" data-action="logout">Sair</button><button class="primary-button" data-action="new-business">+ Novo anúncio</button></div>
+            </div>
+            <div class="stats-grid" id="stats-grid"></div>
+            <section class="panel analytics-panel">
+              <div class="panel-heading"><div><p class="eyebrow purple">Desempenho</p><h3>Interações por canal</h3></div><label class="sort-control">Período <select id="analytics-period"><option value="total">Total</option><option value="30">Últimos 30 dias</option><option value="7">Últimos 7 dias</option><option value="today">Hoje</option></select></label></div>
+              <div class="analytics-bars" id="analytics-bars"></div>
+            </section>
+            <div class="admin-panels">
+              <section class="panel">
+                <div class="panel-heading"><div><p class="eyebrow purple">Seus anúncios</p><h3>Empresas cadastradas</h3></div></div>
+                <div id="admin-business-list"></div>
+              </section>
+              <section class="panel editor-panel" id="editor-panel">
+                <div class="panel-heading"><div><p class="eyebrow purple">Cadastro</p><h3 id="editor-title">Novo anúncio</h3></div></div>
+                <form id="business-form" class="business-form">
+                  <input type="hidden" id="business-id" />
+                  <label>Nome da empresa<input id="business-name" required maxlength="80" placeholder="Ex.: Café da Praça" /></label>
+                  <label>Categoria<select id="business-category" required></select></label>
+                  <label>Descrição<textarea id="business-description" required maxlength="240" rows="3" placeholder="Conte brevemente sobre sua empresa"></textarea></label>
+                  <div class="form-row"><label>Cidade / bairro<input id="business-location" required placeholder="Ex.: Centro, São Paulo" /></label><label>Horário<input id="business-hours" placeholder="Ex.: Seg a sáb, 8h às 18h" /></label></div>
+                  <div class="form-row"><label>WhatsApp<input id="business-whatsapp" type="url" placeholder="https://wa.me/5511999999999" /></label><label>Instagram<input id="business-instagram" type="url" placeholder="https://instagram.com/suaempresa" /></label></div>
+                  <div class="form-row"><label>Localização no mapa<input id="business-map" type="url" placeholder="https://maps.google.com/..." /></label><label>Link para pedidos<input id="business-order" type="url" placeholder="https://..." /></label></div>
+                  <label class="checkbox-label"><input id="business-published" type="checkbox" checked /> Publicar anúncio imediatamente</label>
+                  <p class="form-message" id="form-message" role="status"></p>
+                  <button class="primary-button" type="submit">Salvar anúncio</button>
+                </form>
+              </section>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+    <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+    <section class="modal auth-modal" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" hidden>
+      <button class="modal-close icon-button" data-action="close-auth" aria-label="Fechar acesso">×</button>
+      <div class="auth-heading"><span class="brand-mark">P</span><p class="eyebrow purple">Área empresarial</p><h2 id="auth-title">Entre para gerenciar seu anúncio</h2><p>Use seu e-mail e uma senha para acessar a demonstração local.</p></div>
+      <form id="auth-form" class="business-form">
+        <label>E-mail<input id="auth-email" type="email" required placeholder="voce@empresa.com" /></label>
+        <label>Senha<input id="auth-password" type="password" minlength="4" required placeholder="Mínimo de 4 caracteres" /></label>
+        <p class="form-message" id="auth-message" role="status"></p>
+        <button class="primary-button" type="submit">Entrar na área empresarial</button>
+      </form>
+    </section>
+    <script src="app.js"></script>
+  </body>
+</html>
