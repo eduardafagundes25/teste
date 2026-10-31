@@ -40,7 +40,7 @@ function escapeHtml(value = '') { return value.replace(/[&<>"']/g, (char) => ({ 
 function iconFor(business) { return categoryInfo(business.category).icon; }
 
 function renderCategories() {
-  $('#drawer-list').innerHTML = `<button data-category="">Todas as categorias</button>${categories.map((category) => `<button data-category="${category.name}">${category.icon} &nbsp; ${category.name}</button>`).join('')}`;
+  $('#drawer-list').innerHTML = `<a class="drawer-profile-link" href="htmladm.html">Perfil</a><button data-category="">Todas as categorias</button>${categories.map((category) => `<button data-category="${category.name}">${category.icon} &nbsp; ${category.name}</button>`).join('')}`;
 }
 
 function getVisibleBusinesses() {
@@ -57,12 +57,13 @@ function getVisibleBusinesses() {
 
 function businessCard(business) {
   const category = categoryInfo(business.category);
+  const avatar = business.logo ? `<span class="business-avatar business-logo-avatar"><img src="${escapeHtml(business.logo)}" alt="Logo de ${escapeHtml(business.name)}" /></span>` : `<span class="business-avatar">${iconFor(business)}</span>`;
   const actions = [
     business.whatsapp && `<a class="action-button main" href="${escapeHtml(business.whatsapp)}" target="_blank" rel="noopener" data-interaction="whatsapp" data-id="${business.id}">WhatsApp</a>`,
     business.instagram && `<a class="action-button" href="${escapeHtml(business.instagram)}" target="_blank" rel="noopener" data-interaction="instagram" data-id="${business.id}">Instagram</a>`,
     business.map && `<a class="action-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${business.id}">Localização</a>`,
   ].filter(Boolean).join('');
-  return `<article class="business-card"><button class="business-cover ${category.tone}" data-business="${business.id}" aria-label="Ver detalhes de ${escapeHtml(business.name)}"><span class="business-avatar">${iconFor(business)}</span></button><div class="business-body"><span class="business-category">${escapeHtml(business.category)}</span><h3>${escapeHtml(business.name)}</h3><p class="business-description">${escapeHtml(business.description)}</p><div class="business-meta"><span>⌖ ${escapeHtml(business.location)}</span><span>◷ ${escapeHtml(business.hours || 'Consulte')}</span></div><div class="business-actions">${actions}<button class="action-button" data-business="${business.id}">Detalhes</button></div></div></article>`;
+  return `<article class="business-card"><button class="business-cover ${category.tone}" data-business="${business.id}" aria-label="Ver detalhes de ${escapeHtml(business.name)}">${avatar}</button><div class="business-body"><span class="business-category">${escapeHtml(business.category)}</span><h3>${escapeHtml(business.name)}</h3><p class="business-description">${escapeHtml(business.description)}</p><div class="business-meta"><span>⌖ ${escapeHtml(business.location)}</span><span>◷ ${escapeHtml(business.hours || 'Consulte')}</span></div><div class="business-actions">${actions}<button class="action-button" data-business="${business.id}">Detalhes</button></div></div></article>`;
 }
 
 function renderBusinesses() {
@@ -91,7 +92,8 @@ function openBusiness(id) {
     business.map && `<a class="outline-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${id}">Abrir localização</a>`,
     business.order && `<a class="outline-button" href="${escapeHtml(business.order)}" target="_blank" rel="noopener" data-interaction="order" data-id="${id}">Fazer um pedido</a>`,
   ].filter(Boolean).join('');
-  $('#modal-content').innerHTML = `<div class="modal-hero"><div class="business-cover ${category.tone}"><span class="business-avatar">${iconFor(business)}</span></div><div><span class="business-category">${escapeHtml(business.category)}</span><h2 id="modal-title">${escapeHtml(business.name)}</h2><p class="business-meta">⌖ ${escapeHtml(business.location)}</p></div></div><p class="modal-description">${escapeHtml(business.description)}</p><p class="business-meta">◷ ${escapeHtml(business.hours || 'Horário não informado')}</p><div class="modal-stat">Este anúncio já recebeu ${totalClicks(business)} interações.</div><div class="modal-actions">${contactLinks}</div>`;
+  const avatar = business.logo ? `<span class="business-avatar business-logo-avatar"><img src="${escapeHtml(business.logo)}" alt="Logo de ${escapeHtml(business.name)}" /></span>` : `<span class="business-avatar">${iconFor(business)}</span>`;
+  $('#modal-content').innerHTML = `<div class="modal-hero"><div class="business-cover ${category.tone}">${avatar}</div><div><span class="business-category">${escapeHtml(business.category)}</span><h2 id="modal-title">${escapeHtml(business.name)}</h2><p class="business-meta">⌖ ${escapeHtml(business.location)}</p></div></div><p class="modal-description">${escapeHtml(business.description)}</p><p class="business-meta">◷ ${escapeHtml(business.hours || 'Horário não informado')}</p><div class="modal-stat">Este anúncio já recebeu ${totalClicks(business)} interações.</div><div class="modal-actions">${contactLinks}</div>`;
   $('#modal-backdrop').hidden = false; $('#business-modal').hidden = false;
 }
 
@@ -102,14 +104,34 @@ function openDrawer() { $('#services-drawer').classList.add('open'); $('#service
 function toggleDrawer() { $('#services-drawer').classList.contains('open') ? closeDrawer() : openDrawer(); }
 
 function showAdmin() {
-  if (!localStorage.getItem(SESSION_KEY)) { $('#auth-modal').hidden = false; $('#modal-backdrop').hidden = false; return; }
-  $('#admin-view').hidden = false; document.body.classList.add('admin-active'); renderAdmin(); window.scrollTo(0, 0);
+  if (!hasAdminSession()) { showAuth(); return; }
+  if (!getOwnedBusiness()) { showCompanyOnboarding(); return; }
+  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true; renderAdmin(); window.scrollTo(0, 0);
 }
-function showPublic() { $('#admin-view').hidden = true; document.body.classList.remove('admin-active'); window.scrollTo(0, 0); }
-function closeAuth() { $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; }
-function logout() { localStorage.removeItem(SESSION_KEY); showPublic(); }
+function showPublic() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = true; document.body.classList.remove('admin-active'); window.scrollTo(0, 0); }
+function hasAdminSession() {
+  try { return Boolean(JSON.parse(localStorage.getItem(SESSION_KEY))?.registeredAt); } catch { return false; }
+}
+function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || {}; } catch { return {}; } }
+function getOwnedBusiness() { const id = getSession().businessId; return id ? state.businesses.find((business) => business.id === id) : null; }
+function whatsappLink(value = '') {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  const number = digits.length <= 11 ? `55${digits}` : digits;
+  return `https://wa.me/${number}`;
+}
+function whatsappNumber(value = '') {
+  const digits = value.replace(/\D/g, '');
+  return digits.startsWith('55') ? digits.slice(2) : digits;
+}
+function safeLink(value = '') { return /^https?:\/\//i.test(value) ? value : ''; }
+function showAuth() { $('#auth-modal').hidden = false; $('#modal-backdrop').hidden = false; }
+function closeAuth() { if (!hasAdminSession()) return; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; }
+function logout() { localStorage.removeItem(SESSION_KEY); showPublic(); showAuth(); }
+function showCompanyOnboarding() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = false; document.body.classList.remove('admin-active'); $('#profile-panel-slot').appendChild($('#profile-panel')); $('#profile-panel').classList.add('onboarding-profile'); $('#profile-view').hidden = true; $('#profile-editor').hidden = false; resetForm(); window.scrollTo(0, 0); }
 function renderAnalytics() {
-  const totals = state.businesses.reduce((acc, item) => {
+  const businesses = [getOwnedBusiness()].filter(Boolean);
+  const totals = businesses.reduce((acc, item) => {
     Object.keys(acc).forEach((key) => { acc[key] += item.interactions[key] || 0; });
     return acc;
   }, { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 });
@@ -118,30 +140,66 @@ function renderAnalytics() {
   $('#analytics-bars').innerHTML = labels.map(([label, value]) => `<div class="analytics-row"><span>${label}</span><div class="analytics-track"><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div><strong>${value}</strong></div>`).join('');
 }
 function renderAdmin() {
-  const businesses = state.businesses;
+  const businesses = [getOwnedBusiness()].filter(Boolean);
   const totals = businesses.reduce((acc, item) => { Object.keys(acc).forEach((key) => { acc[key] += item.interactions[key] || 0; }); return acc; }, { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 });
   const interactions = Object.values(totals).reduce((sum, value) => sum + value, 0);
   $('#stats-grid').innerHTML = [['Interações totais', interactions, '↑ Visão geral'], ['Visualizações', totals.view, '↑ Anúncios vistos'], ['WhatsApp', totals.whatsapp, '↑ Cliques de contato'], ['Localização', totals.location, '↑ Rotas abertas']].map(([label, value, note]) => `<div class="stat-card"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join('');
-  $('#admin-business-list').innerHTML = businesses.length ? businesses.map((business) => `<div class="admin-business"><span class="business-avatar">${iconFor(business)}</span><div class="admin-business-info"><strong>${escapeHtml(business.name)}</strong><span>${escapeHtml(business.category)} · ${totalClicks(business)} interações</span></div><span class="status ${business.status === 'published' ? 'published' : 'draft'}">${business.status === 'published' ? 'Publicado' : 'Rascunho'}</span><button class="small-button" data-edit="${business.id}">Editar</button></div>`).join('') : '<p class="business-meta">Nenhum anúncio cadastrado ainda.</p>';
+  renderProfile(businesses[0]);
   renderAnalytics();
 }
 
-function resetForm() { state.editingId = null; $('#editor-title').textContent = 'Novo anúncio'; $('#business-form').reset(); $('#business-id').value = ''; $('#business-published').checked = true; $('#form-message').textContent = ''; }
+function renderProfile(business) {
+  if (!business) return;
+  fillForm(business.id);
+  $('#editor-title').textContent = 'Perfil da Empresa'; $('#profile-status').textContent = business.status === 'published' ? 'Publicado' : 'Rascunho';
+  $('#business-logo-preview').style.backgroundImage = business.logo ? `url("${business.logo}")` : '';
+  $('#business-logo-placeholder').hidden = Boolean(business.logo);
+  $('#profile-name').textContent = business.name;
+  $('#profile-category').textContent = business.category;
+  $('#profile-description').textContent = business.description;
+  $('#profile-location-cover').textContent = business.location;
+  $('#profile-hours').textContent = business.hours || 'Horário não informado';
+  $('#profile-info-category').textContent = business.category;
+  $('#profile-info-location').textContent = business.location;
+  $('#profile-info-hours').textContent = business.hours || 'Não informado';
+  $('#profile-info-order').textContent = business.order ? 'Link disponível' : 'Não informado';
+  $('#profile-logo').style.backgroundImage = business.logo ? `url("${business.logo}")` : '';
+  $('#profile-logo-placeholder').hidden = Boolean(business.logo);
+  $('#profile-cover').style.backgroundImage = business.cover ? `url("${business.cover}")` : '';
+  const totals = business.interactions || {};
+  const interactions = Object.entries(totals).filter(([key]) => key !== 'view').reduce((sum, [, value]) => sum + value, 0);
+  $('#profile-interactions').textContent = interactions;
+  $('#profile-views').textContent = totals.view || 0;
+  $('#profile-whatsapp').textContent = totals.whatsapp || 0;
+  setProfileLink('#profile-whatsapp-link', whatsappLink(business.whatsapp), 'WhatsApp', 'whatsapp');
+  setProfileLink('#profile-order-link', safeLink(business.order), 'Fazer pedido', 'order');
+  setProfileLink('#profile-instagram-link', safeLink(business.instagram), 'Instagram', 'instagram');
+  setProfileLink('#profile-map-link', safeLink(business.map), 'Como chegar', 'location');
+  renderProfilePerformance(business);
+}
+function setProfileLink(selector, href, label, interaction) { const link = $(selector); link.href = href || '#'; link.classList.toggle('is-disabled', !href); link.setAttribute('aria-disabled', String(!href)); link.dataset.profileInteraction = interaction; link.textContent = label; }
+function renderProfilePerformance(business) {
+  const values = [['Visualizações', business.interactions?.view || 0], ['WhatsApp', business.interactions?.whatsapp || 0], ['Instagram', business.interactions?.instagram || 0], ['Localização', business.interactions?.location || 0], ['Pedidos', business.interactions?.order || 0]];
+  const max = Math.max(...values.map(([, value]) => value), 1);
+  $('#profile-performance-bars').innerHTML = values.map(([label, value]) => `<div class="profile-bar"><div><span>${label}</span><strong>${value}</strong></div><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div>`).join('');
+}
+function resetForm() { state.editingId = null; state.logoData = ''; state.coverData = ''; $('#editor-title').textContent = 'Cadastro da empresa'; $('#business-form').reset(); $('#business-id').value = ''; $('#business-published').checked = true; $('#business-logo-preview').style.backgroundImage = ''; $('#business-logo-placeholder').hidden = false; $('#form-message').textContent = ''; }
 function fillForm(id) {
   const business = state.businesses.find((item) => item.id === id); if (!business) return;
-  state.editingId = id; $('#editor-title').textContent = 'Editar anúncio'; $('#business-id').value = id;
-  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-whatsapp', 'whatsapp'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order']].forEach(([field, key]) => { $(`#${field}`).value = business[key] || ''; });
-  $('#business-category').value = business.category; $('#business-published').checked = business.status === 'published'; $('#form-message').textContent = ''; $('#editor-panel').scrollIntoView({ behavior: 'smooth' });
+  state.editingId = id; $('#business-id').value = id;
+  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order']].forEach(([field, key]) => { $(`#${field}`).value = business[key] || ''; });
+  $('#business-whatsapp').value = whatsappNumber(business.whatsapp || '');
+  $('#business-category').value = business.category; $('#business-published').checked = business.status === 'published'; $('#form-message').textContent = ''; $('#profile-panel').scrollIntoView({ behavior: 'smooth' });
 }
 
 function handleBusinessSubmit(event) {
   event.preventDefault();
   const id = state.editingId || `business-${Date.now()}`;
   const previous = state.businesses.find((item) => item.id === id);
-  const business = { id, name: $('#business-name').value.trim(), category: $('#business-category').value, description: $('#business-description').value.trim(), location: $('#business-location').value.trim(), hours: $('#business-hours').value.trim(), whatsapp: $('#business-whatsapp').value.trim(), instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(), status: $('#business-published').checked ? 'published' : 'draft', createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10), interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 } };
+  const business = { id, name: $('#business-name').value.trim(), category: $('#business-category').value, description: $('#business-description').value.trim(), location: $('#business-location').value.trim(), hours: $('#business-hours').value.trim(), whatsapp: whatsappLink($('#business-whatsapp').value.trim()), instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(), logo: state.logoData || previous?.logo || '', cover: state.coverData || previous?.cover || '', status: $('#business-published').checked ? 'published' : 'draft', createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10), interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 } };
   if (!business.name || !business.description || !business.location) { $('#form-message').textContent = 'Preencha nome, descrição e localização.'; return; }
   if (previous) state.businesses = state.businesses.map((item) => item.id === id ? business : item); else state.businesses.push(business);
-  saveData(); renderAdmin(); resetForm(); $('#form-message').textContent = 'Anúncio salvo com sucesso.'; renderBusinesses();
+  saveData(); localStorage.setItem(SESSION_KEY, JSON.stringify({ ...getSession(), businessId: id })); state.logoData = ''; state.coverData = ''; $('#form-message').textContent = 'Dados salvos com sucesso.'; showAdmin(); renderBusinesses();
 }
 
 function search(query, location = $('#hero-location').value) { state.query = query.trim(); state.location = location.trim(); $('#hero-query').value = state.query; $('#hero-location').value = state.location; renderBusinesses(); $('#results').scrollIntoView({ behavior: 'smooth' }); }
@@ -150,23 +208,40 @@ document.addEventListener('click', (event) => {
   const categoryButton = event.target.closest('[data-category]'); if (categoryButton) { setCategory(categoryButton.dataset.category); return; }
   const businessButton = event.target.closest('[data-business]'); if (businessButton) { openBusiness(businessButton.dataset.business); return; }
   const interaction = event.target.closest('[data-interaction]'); if (interaction) { recordInteraction(interaction.dataset.id, interaction.dataset.interaction); return; }
+  const profileInteraction = event.target.closest('[data-profile-interaction]'); if (profileInteraction && !profileInteraction.classList.contains('is-disabled')) { const business = getOwnedBusiness(); if (business) { recordInteraction(business.id, profileInteraction.dataset.profileInteraction); renderProfile(business); } return; }
   const editButton = event.target.closest('[data-edit]'); if (editButton) { fillForm(editButton.dataset.edit); return; }
+  const profileTab = event.target.closest('[data-profile-tab]'); if (profileTab) { const tab = profileTab.dataset.profileTab; $$('.profile-tabs button').forEach((button) => button.classList.toggle('active', button === profileTab)); $$('.profile-tab-content').forEach((content) => content.classList.toggle('active', content.id === `profile-${tab}`)); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
-  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); } if (action === 'new-business') { resetForm(); $('#editor-panel').scrollIntoView({ behavior: 'smooth' }); }
+  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'edit-profile') { $('#profile-view').hidden = true; $('#profile-editor').hidden = false; } if (action === 'close-profile-editor') { $('#profile-editor').hidden = true; $('#profile-view').hidden = false; } if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); }
 });
 if ($('#hero-search-form')) $('#hero-search-form').addEventListener('submit', (event) => { event.preventDefault(); search($('#hero-query').value); });
 if ($('#sort-select')) $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; renderBusinesses(); });
 if ($('#business-form')) $('#business-form').addEventListener('submit', handleBusinessSubmit);
+if ($('#business-logo')) $('#business-logo').addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener('load', () => { state.logoData = reader.result; $('#business-logo-preview').style.backgroundImage = `url("${reader.result}")`; $('#business-logo-placeholder').hidden = true; });
+  reader.readAsDataURL(file);
+});
+if ($('#business-cover')) $('#business-cover').addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener('load', () => { state.coverData = reader.result; });
+  reader.readAsDataURL(file);
+});
 if ($('#auth-form')) $('#auth-form').addEventListener('submit', (event) => {
   event.preventDefault();
   if (!$('#auth-form').reportValidity()) return;
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ email: $('#auth-email').value.trim(), loggedAt: Date.now() }));
-  $('#auth-message').textContent = 'Acesso realizado.';
+  if (!/^\d{8}$/.test($('#auth-password').value)) { $('#auth-message').textContent = 'A senha deve ter exatamente 8 dígitos.'; return; }
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ email: $('#auth-email').value.trim(), registeredAt: Date.now() }));
+  $('#auth-message').textContent = 'Cadastro concluído.';
   closeAuth();
   showAdmin();
 });
 if ($('#drawer-backdrop')) $('#drawer-backdrop').addEventListener('click', closeDrawer);
-if ($('#modal-backdrop')) $('#modal-backdrop').addEventListener('click', closeModal);
+if ($('#modal-backdrop')) $('#modal-backdrop').addEventListener('click', () => { if ($('#auth-modal').hidden) closeModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeDrawer(); closeModal(); closeAuth(); } });
 
 loadData();
@@ -176,9 +251,7 @@ if ($('#business-grid')) {
 }
 if (document.body.dataset.page === 'admin') {
   $('#business-category').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
-  if (localStorage.getItem(SESSION_KEY)) renderAdmin();
-  else {
-    $('#auth-modal').hidden = false;
-    $('#modal-backdrop').hidden = false;
-  }
+  if (hasAdminSession()) showAdmin();
+  else showAuth();
 }
+if ($('#profile-view')) $$('.profile-tab-content').forEach((content, index) => { if (index > 0) content.classList.remove('active'); });
