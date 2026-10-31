@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'procure-aonde-data-v1';
 const SESSION_KEY = 'procure-aonde-session-v1';
+const BUSINESSES_CLEAR_KEY = 'procure-aonde-businesses-clear-v1';
 
 const categories = [
   { name: 'Alimentação', icon: '🍴', tone: 'food' },
@@ -13,12 +14,7 @@ const categories = [
   { name: 'Serviços profissionais', icon: '◆', tone: 'professional' },
 ];
 
-const starterBusinesses = [
-  { id: 'cafe-praca', name: 'Café da Praça', category: 'Alimentação', description: 'Café especial, brunch e doces artesanais em um ambiente acolhedor.', location: 'Centro, São Paulo', hours: 'Seg a sáb, 8h às 18h', whatsapp: 'https://wa.me/5511999991111', instagram: 'https://instagram.com', map: 'https://maps.google.com', order: 'https://wa.me/5511999991111', status: 'published', createdAt: '2026-01-15', interactions: { view: 128, whatsapp: 42, instagram: 18, location: 23, order: 11 } },
-  { id: 'studio-lumi', name: 'Studio Lumi', category: 'Beleza', description: 'Cuidado, beleza e bem-estar para você se sentir ainda melhor.', location: 'Vila Madalena, São Paulo', hours: 'Ter a sáb, 9h às 20h', whatsapp: 'https://wa.me/5511988882222', instagram: 'https://instagram.com', map: 'https://maps.google.com', order: 'https://wa.me/5511988882222', status: 'published', createdAt: '2026-02-04', interactions: { view: 94, whatsapp: 31, instagram: 27, location: 14, order: 8 } },
-  { id: 'conserta-ja', name: 'Conserta Já', category: 'Manutenção', description: 'Assistência residencial rápida e confiável para pequenos reparos.', location: 'Moema, São Paulo', hours: 'Seg a sex, 8h às 17h', whatsapp: 'https://wa.me/5511977773333', instagram: '', map: 'https://maps.google.com', order: 'https://wa.me/5511977773333', status: 'published', createdAt: '2026-03-12', interactions: { view: 71, whatsapp: 25, instagram: 0, location: 16, order: 6 } },
-  { id: 'clinica-viva', name: 'Clínica Viva', category: 'Saúde', description: 'Atendimento humanizado com profissionais especializados.', location: 'Pinheiros, São Paulo', hours: 'Seg a sex, 7h às 19h', whatsapp: 'https://wa.me/5511966664444', instagram: 'https://instagram.com', map: 'https://maps.google.com', order: '', status: 'published', createdAt: '2026-04-02', interactions: { view: 62, whatsapp: 19, instagram: 10, location: 18, order: 0 } },
-];
+const starterBusinesses = [];
 
 const state = { businesses: [], query: '', location: '', category: '', sort: 'relevance', editingId: null };
 const $ = (selector) => document.querySelector(selector);
@@ -27,7 +23,12 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 function loadData() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    state.businesses = Array.isArray(saved) && saved.length ? saved : starterBusinesses;
+    state.businesses = Array.isArray(saved) ? saved : starterBusinesses;
+    if (!localStorage.getItem(BUSINESSES_CLEAR_KEY)) {
+      state.businesses = [];
+      saveData();
+      localStorage.setItem(BUSINESSES_CLEAR_KEY, 'true');
+    }
   } catch {
     state.businesses = starterBusinesses;
   }
