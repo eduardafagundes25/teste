@@ -144,7 +144,7 @@ function handleBusinessSubmit(event) {
   saveData(); renderAdmin(); resetForm(); $('#form-message').textContent = 'Anúncio salvo com sucesso.'; renderBusinesses();
 }
 
-function search(query, location = $('#hero-location').value) { state.query = query.trim(); state.location = location.trim(); $('#header-query').value = state.query; $('#hero-query').value = state.query; $('#hero-location').value = state.location; renderBusinesses(); $('#results').scrollIntoView({ behavior: 'smooth' }); }
+function search(query, location = $('#hero-location').value) { state.query = query.trim(); state.location = location.trim(); $('#hero-query').value = state.query; $('#hero-location').value = state.location; renderBusinesses(); $('#results').scrollIntoView({ behavior: 'smooth' }); }
 
 document.addEventListener('click', (event) => {
   const categoryButton = event.target.closest('[data-category]'); if (categoryButton) { setCategory(categoryButton.dataset.category); return; }
@@ -152,9 +152,8 @@ document.addEventListener('click', (event) => {
   const interaction = event.target.closest('[data-interaction]'); if (interaction) { recordInteraction(interaction.dataset.id, interaction.dataset.interaction); return; }
   const editButton = event.target.closest('[data-edit]'); if (editButton) { fillForm(editButton.dataset.edit); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
-  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#header-query').value = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); } if (action === 'new-business') { resetForm(); $('#editor-panel').scrollIntoView({ behavior: 'smooth' }); }
+  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); } if (action === 'new-business') { resetForm(); $('#editor-panel').scrollIntoView({ behavior: 'smooth' }); }
 });
-if ($('#header-search-form')) $('#header-search-form').addEventListener('submit', (event) => { event.preventDefault(); search($('#header-query').value); });
 if ($('#hero-search-form')) $('#hero-search-form').addEventListener('submit', (event) => { event.preventDefault(); search($('#hero-query').value); });
 if ($('#sort-select')) $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; renderBusinesses(); });
 if ($('#business-form')) $('#business-form').addEventListener('submit', handleBusinessSubmit);

@@ -17,15 +17,23 @@
         <span class="brand-mark">P</span>
         <span>Procure Aonde</span>
       </a>
-      <form class="header-search" id="header-search-form" role="search">
-        <label class="sr-only" for="header-query">Pesquisar empresas ou serviços</label>
-        <span aria-hidden="true">⌕</span>
-        <input id="header-query" type="search" placeholder="Pesquise empresas, serviços..." />
+      <form class="hero-search header-main-search" id="hero-search-form" role="search">
+        <div class="search-field">
+          <span aria-hidden="true">⌕</span>
+          <label class="sr-only" for="hero-query">O que você está procurando?</label>
+          <input id="hero-query" type="search" placeholder="O que você está procurando?" />
+        </div>
+        <div class="search-field location-field">
+          <span aria-hidden="true">⌖</span>
+          <label class="sr-only" for="hero-location">Onde?</label>
+          <input id="hero-location" type="search" placeholder="Cidade ou bairro" />
+        </div>
+        <button class="primary-button" type="submit">Pesquisar</button>
       </form>
-      <nav class="header-nav" aria-label="Navegação principal">
+      <!-- <nav class="header-nav" aria-label="Navegação principal">
         <a class="link-button" href="htmladm.html">Para empresas</a>
         <a class="outline-button" href="htmladm.html">Entrar / cadastrar</a>
-      </nav>
+      </nav> -->
     </header>
 
     <main>
@@ -34,19 +42,6 @@
           <p class="eyebrow">Descubra negócios locais</p>
           <h1 id="hero-title">Encontre o que você precisa, perto de você.</h1>
           <p class="hero-subtitle">Descubra, conecte-se e contrate serviços de empresas de confiança.</p>
-          <form class="hero-search" id="hero-search-form" role="search">
-            <div class="search-field">
-              <span aria-hidden="true">⌕</span>
-              <label class="sr-only" for="hero-query">O que você está procurando?</label>
-              <input id="hero-query" type="search" placeholder="O que você está procurando?" />
-            </div>
-            <div class="search-field location-field">
-              <span aria-hidden="true">⌖</span>
-              <label class="sr-only" for="hero-location">Onde?</label>
-              <input id="hero-location" type="search" placeholder="Cidade ou bairro" />
-            </div>
-            <button class="primary-button" type="submit">Pesquisar</button>
-          </form>
         </div>
       </section>
 
@@ -68,14 +63,14 @@
         <div class="business-grid" id="business-grid"></div>
       </section>
 
-      <section class="business-cta page-section">
+      <!-- <section class="business-cta page-section">
         <div>
           <p class="eyebrow">Tem um negócio?</p>
           <h2>Faça sua empresa ser encontrada.</h2>
           <p>Cadastre seus serviços gratuitamente e acompanhe o interesse dos seus clientes.</p>
         </div>
         <a class="primary-button" href="htmladm.html">Cadastrar minha empresa <span aria-hidden="true">→</span></a>
-      </section>
+      </section> -->
     </main>
 
     <footer class="site-footer">
