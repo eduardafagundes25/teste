@@ -1,5 +1,6 @@
 create table if not exists public.businesses (
   id text primary key,
+  owner_id uuid references auth.users(id) on delete cascade,
   name text not null,
   category text not null,
   description text not null,
@@ -30,30 +31,32 @@ create index if not exists business_interactions_created_at_idx on public.busine
 alter table public.businesses enable row level security;
 alter table public.business_interactions enable row level security;
 
+alter table public.businesses add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+
 drop policy if exists "Public can read published businesses" on public.businesses;
 create policy "Public can read published businesses"
   on public.businesses for select
   to anon, authenticated
   using (status = 'published');
 
-drop policy if exists "Public can read own business records" on public.businesses;
-create policy "Public can read own business records"
+drop policy if exists "Owners can read own business records" on public.businesses;
+create policy "Owners can read own business records"
   on public.businesses for select
-  to anon, authenticated
-  using (true);
+  to authenticated
+  using (owner_id = auth.uid());
 
-drop policy if exists "Public can create business records" on public.businesses;
-create policy "Public can create business records"
+drop policy if exists "Authenticated users can create business records" on public.businesses;
+create policy "Authenticated users can create business records"
   on public.businesses for insert
-  to anon, authenticated
-  with check (true);
+  to authenticated
+  with check (owner_id = auth.uid());
 
-drop policy if exists "Public can update business records" on public.businesses;
-create policy "Public can update business records"
+drop policy if exists "Owners can update business records" on public.businesses;
+create policy "Owners can update business records"
   on public.businesses for update
-  to anon, authenticated
-  using (true)
-  with check (true);
+  to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
 
 drop policy if exists "Public can add interactions" on public.business_interactions;
 create policy "Public can add interactions"

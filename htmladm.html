@@ -72,12 +72,13 @@
     </section>
     <div class="modal-backdrop" id="modal-backdrop" hidden></div>
     <section class="modal auth-modal" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" hidden>
-      <div class="auth-heading"><span class="brand-mark">P</span><p class="eyebrow purple">Área empresarial</p><h2 id="auth-title">Cadastre-se para acessar o painel</h2><p>Informe seu e-mail empresarial e crie uma senha de 8 dígitos.</p></div>
+      <div class="auth-heading"><span class="brand-mark">P</span><p class="eyebrow purple">Área empresarial</p><h2 id="auth-title">Cadastre-se para acessar o painel</h2><p id="auth-description">Informe seu e-mail empresarial e crie uma senha com pelo menos 8 caracteres.</p></div>
       <form id="auth-form" class="business-form">
         <label>E-mail empresarial<input id="auth-email" type="email" required placeholder="voce@empresa.com" /></label>
-        <label>Senha de 8 dígitos<input id="auth-password" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" required placeholder="Digite 8 dígitos" /></label>
+        <label>Senha<input id="auth-password" type="password" minlength="8" required placeholder="Digite sua senha" /></label>
         <p class="form-message" id="auth-message" role="status"></p>
-        <button class="primary-button" type="submit">Concluir cadastro</button>
+        <button class="primary-button" id="auth-submit" type="submit">Concluir cadastro</button>
+        <button class="text-button" id="auth-mode-toggle" type="button">Já tenho uma conta</button>
       </form>
     </section>
     <section class="admin-onboarding" id="admin-onboarding" hidden>

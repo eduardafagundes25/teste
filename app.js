@@ -1,8 +1,6 @@
-import { addInteraction, fetchBusinesses, upsertBusiness } from './supabase-client.js';
+import { addInteraction, fetchBusinesses, getCurrentUser, signIn, signOut, signUp, upsertBusiness } from './supabase-client.js';
 
 const STORAGE_KEY = 'procure-aonde-data-v1';
-const SESSION_KEY = 'procure-aonde-session-v1';
-const BUSINESSES_CLEAR_KEY = 'procure-aonde-businesses-clear-v1';
 
 const categories = [
   { name: 'Alimentação', icon: '🍴', tone: 'food' },
@@ -19,6 +17,8 @@ const categories = [
 const starterBusinesses = [];
 
 const state = { businesses: [], query: '', location: '', category: '', sort: 'relevance', editingId: null };
+let currentUser = null;
+let authMode = 'signup';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const THEME_KEY = 'procure-aonde-theme';
@@ -45,6 +45,22 @@ function toggleTheme() {
   const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   localStorage.setItem(THEME_KEY, nextTheme);
   setTheme(nextTheme);
+}
+
+function handleAuthCallbackError() {
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const errorCode = hash.get('error_code');
+  const errorDescription = hash.get('error_description');
+  if (!errorCode && !errorDescription) return;
+
+  const message = errorCode === 'otp_expired'
+    ? 'Este link de confirmação expirou ou já foi usado. Faça o cadastro novamente para receber um novo link.'
+    : `Não foi possível confirmar o e-mail: ${errorDescription?.replace(/\+/g, ' ') || 'link inválido'}.`;
+  const notice = document.createElement('div');
+  notice.className = 'auth-callback-error';
+  notice.innerHTML = `<strong>Confirmação de e-mail</strong><span>${escapeHtml(message)}</span><a href="htmladm.html">Voltar para o cadastro</a>`;
+  document.body.prepend(notice);
+  history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
 async function loadData() {
@@ -139,16 +155,17 @@ function toggleDrawer() { $('#services-drawer').classList.contains('open') ? clo
 
 async function showAdmin() {
   await dataReady;
+  currentUser = await getCurrentUser();
   if (!hasAdminSession()) { showAuth(); return; }
+  await loadData();
   if (!getOwnedBusiness()) { showCompanyOnboarding(); return; }
   $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true; renderAdmin(); window.scrollTo(0, 0);
 }
 function showPublic() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = true; document.body.classList.remove('admin-active'); window.scrollTo(0, 0); }
 function hasAdminSession() {
-  try { return Boolean(JSON.parse(localStorage.getItem(SESSION_KEY))?.registeredAt); } catch { return false; }
+  return Boolean(currentUser);
 }
-function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || {}; } catch { return {}; } }
-function getOwnedBusiness() { const id = getSession().businessId; return id ? state.businesses.find((business) => business.id === id) : null; }
+function getOwnedBusiness() { return currentUser ? state.businesses.find((business) => business.owner_id === currentUser.id) : null; }
 function whatsappLink(value = '') {
   const digits = value.replace(/\D/g, '');
   if (!digits) return '';
@@ -162,7 +179,12 @@ function whatsappNumber(value = '') {
 function safeLink(value = '') { return /^https?:\/\//i.test(value) ? value : ''; }
 function showAuth() { $('#auth-modal').hidden = false; $('#modal-backdrop').hidden = false; }
 function closeAuth() { if (!hasAdminSession()) return; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; }
-function logout() { localStorage.removeItem(SESSION_KEY); showPublic(); showAuth(); }
+async function logout() {
+  await signOut();
+  currentUser = null;
+  showPublic();
+  showAuth();
+}
 function showCompanyOnboarding() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = false; document.body.classList.remove('admin-active'); $('#profile-panel-slot').appendChild($('#profile-panel')); $('#profile-panel').classList.add('onboarding-profile'); $('#profile-view').hidden = true; $('#profile-editor').hidden = false; resetForm(); window.scrollTo(0, 0); }
 function renderAnalytics() {
   const businesses = [getOwnedBusiness()].filter(Boolean);
@@ -233,19 +255,21 @@ function handleBusinessSubmit(event) {
   if (submitButton.disabled) return;
   const id = state.editingId || `business-${Date.now()}`;
   const previous = state.businesses.find((item) => item.id === id);
-  const business = { id, name: $('#business-name').value.trim(), category: $('#business-category').value, description: $('#business-description').value.trim(), location: $('#business-location').value.trim(), hours: $('#business-hours').value.trim(), whatsapp: whatsappLink($('#business-whatsapp').value.trim()), instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(), logo: state.logoData || previous?.logo || '', cover: state.coverData || previous?.cover || '', status: $('#business-published').checked ? 'published' : 'draft', createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10), interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 } };
+  const business = { id, owner_id: currentUser.id, name: $('#business-name').value.trim(), category: $('#business-category').value, description: $('#business-description').value.trim(), location: $('#business-location').value.trim(), hours: $('#business-hours').value.trim(), whatsapp: whatsappLink($('#business-whatsapp').value.trim()), instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(), logo: state.logoData || previous?.logo || '', cover: state.coverData || previous?.cover || '', status: $('#business-published').checked ? 'published' : 'draft', createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10), interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 } };
   if (!business.name || !business.description || !business.location) { $('#form-message').textContent = 'Preencha nome, descrição e localização.'; return; }
-  if (previous) state.businesses = state.businesses.map((item) => item.id === id ? business : item); else state.businesses.push(business);
-  saveData();
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ ...getSession(), businessId: id }));
   state.logoData = '';
   state.coverData = '';
-  showAdmin();
-  renderBusinesses();
   submitButton.disabled = true;
   submitButton.textContent = 'Salvando...';
   upsertBusiness(business)
-    .then(() => { $('#form-message').textContent = 'Dados salvos com sucesso.'; })
+    .then((savedBusiness) => {
+      if (previous) state.businesses = state.businesses.map((item) => item.id === id ? savedBusiness : item);
+      else state.businesses.push(savedBusiness);
+      saveData();
+      $('#form-message').textContent = 'Dados salvos com sucesso.';
+      renderBusinesses();
+      return showAdmin();
+    })
     .catch((error) => {
       console.error('Não foi possível salvar a empresa no Supabase.', error);
       $('#profile-view').hidden = true;
@@ -287,28 +311,59 @@ if ($('#business-cover')) $('#business-cover').addEventListener('change', (event
   reader.addEventListener('load', () => { state.coverData = reader.result; });
   reader.readAsDataURL(file);
 });
-if ($('#auth-form')) $('#auth-form').addEventListener('submit', (event) => {
+if ($('#auth-mode-toggle')) $('#auth-mode-toggle').addEventListener('click', () => {
+  authMode = authMode === 'signup' ? 'signin' : 'signup';
+  $('#auth-title').textContent = authMode === 'signup' ? 'Cadastre-se para acessar o painel' : 'Entre para acessar o painel';
+  $('#auth-description').textContent = authMode === 'signup'
+    ? 'Informe seu e-mail empresarial e crie uma senha com pelo menos 8 caracteres.'
+    : 'Use o e-mail e a senha cadastrados no Supabase.';
+  $('#auth-submit').textContent = authMode === 'signup' ? 'Concluir cadastro' : 'Entrar';
+  $('#auth-mode-toggle').textContent = authMode === 'signup' ? 'Já tenho uma conta' : 'Ainda não tenho uma conta';
+  $('#auth-message').textContent = '';
+});
+if ($('#auth-form')) $('#auth-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!$('#auth-form').reportValidity()) return;
-  if (!/^\d{8}$/.test($('#auth-password').value)) { $('#auth-message').textContent = 'A senha deve ter exatamente 8 dígitos.'; return; }
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ email: $('#auth-email').value.trim(), registeredAt: Date.now() }));
-  $('#auth-message').textContent = 'Cadastro concluído.';
-  closeAuth();
-  showAdmin();
+  const email = $('#auth-email').value.trim();
+  const password = $('#auth-password').value;
+  const submitButton = $('#auth-submit');
+  submitButton.disabled = true;
+  $('#auth-message').textContent = 'Conectando ao Supabase...';
+  try {
+    const { data, error } = authMode === 'signup'
+      ? await signUp(email, password)
+      : await signIn(email, password);
+    if (error) throw error;
+    currentUser = data.session ? data.user : null;
+    if (!currentUser) {
+      $('#auth-message').textContent = 'Cadastro realizado. Confirme seu e-mail para continuar.';
+      return;
+    }
+    $('#auth-message').textContent = authMode === 'signup' ? 'Cadastro concluído.' : 'Login realizado.';
+    closeAuth();
+    await showAdmin();
+  } catch (error) {
+    console.error('Não foi possível autenticar no Supabase.', error);
+    $('#auth-message').textContent = error.message || 'Não foi possível concluir a autenticação.';
+  } finally {
+    submitButton.disabled = false;
+  }
 });
 if ($('#drawer-backdrop')) $('#drawer-backdrop').addEventListener('click', closeDrawer);
 if ($('#modal-backdrop')) $('#modal-backdrop').addEventListener('click', () => { if ($('#auth-modal').hidden) closeModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeDrawer(); closeModal(); closeAuth(); } });
 
 initializeTheme();
+handleAuthCallbackError();
 const dataReady = loadData();
-dataReady.then(() => {
+dataReady.then(async () => {
   if ($('#business-grid')) {
     renderCategories();
     renderBusinesses();
   }
   if (document.body.dataset.page === 'admin') {
     $('#business-category').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
+    currentUser = await getCurrentUser();
     if (hasAdminSession()) showAdmin();
     else showAuth();
   }

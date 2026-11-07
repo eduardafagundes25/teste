@@ -9,6 +9,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export async function getCurrentUser() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error && error.name !== 'AuthSessionMissingError') throw error;
+  return data.user;
+}
+
+export async function signUp(email, password) {
+  return supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${window.location.origin}/htmladm.html` },
+  });
+}
+
+export async function signIn(email, password) {
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
 function toBusiness(row, interactions = []) {
   const counts = interactions
     .filter((interaction) => interaction.business_id === row.id)
@@ -30,8 +53,11 @@ export async function fetchBusinesses() {
 }
 
 export async function upsertBusiness(business) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Faça login para salvar uma empresa.');
   const record = {
     id: business.id,
+    owner_id: user.id,
     name: business.name,
     category: business.category,
     description: business.description,
