@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body data-page="admin">
-    <section class="admin-view" id="admin-view">
+    <section class="admin-view" id="admin-view" hidden>
       <div class="admin-shell">
         <header class="admin-header">
           <a class="brand" href="index.html"><span class="brand-mark">P</span><span>Procure Aonde</span></a>
@@ -27,6 +27,10 @@
               <div class="admin-actions"><button class="outline-button" data-action="logout">Sair</button></div>
             </div>
             <div class="stats-grid" id="stats-grid"></div>
+            <section class="panel" id="moderation-panel" hidden>
+              <div class="panel-heading"><div><p class="eyebrow purple">Administração</p><h3>Moderar empresas</h3></div></div>
+              <div id="moderation-list"></div>
+            </section>
             <section class="panel analytics-panel">
               <div class="panel-heading"><div><p class="eyebrow purple">Desempenho</p><h3>Interações por canal</h3></div><label class="sort-control">Período <select id="analytics-period"><option value="total">Total</option><option value="30">Últimos 30 dias</option><option value="7">Últimos 7 dias</option><option value="today">Hoje</option></select></label></div>
               <div class="analytics-bars" id="analytics-bars"></div>
@@ -39,7 +43,7 @@
                     <div class="profile-summary-top"><div class="profile-logo" id="profile-logo"><span id="profile-logo-placeholder">P</span></div><div class="profile-metrics"><div><strong id="profile-interactions">0</strong><span>Interações</span></div><div><strong id="profile-views">0</strong><span>Visitas</span></div><div><strong id="profile-whatsapp">0</strong><span>WhatsApp</span></div></div></div>
                     <div class="profile-heading"><div><h2 id="profile-name"></h2><div class="profile-meta"><span class="profile-category" id="profile-category"></span><span id="profile-hours"></span></div></div><span class="profile-status" id="profile-status"></span></div>
                     <p class="profile-description" id="profile-description"></p>
-                    <div class="profile-actions"><a class="profile-action whatsapp" id="profile-whatsapp-link" target="_blank" rel="noopener">WhatsApp</a><a class="profile-action primary" id="profile-order-link" target="_blank" rel="noopener">Fazer pedido</a><a class="profile-action" id="profile-instagram-link" target="_blank" rel="noopener">Instagram</a><a class="profile-action" id="profile-map-link" target="_blank" rel="noopener">Como chegar</a></div>
+                    <div class="profile-actions"><a class="profile-action whatsapp" id="profile-whatsapp-link" target="_blank" rel="noopener">WhatsApp</a><a class="profile-action primary" id="profile-order-link" target="_blank" rel="noopener">Fazer pedido</a><a class="profile-action" id="profile-phone-link" target="_blank" rel="noopener">Telefone</a><a class="profile-action" id="profile-instagram-link" target="_blank" rel="noopener">Instagram</a><a class="profile-action" id="profile-map-link" target="_blank" rel="noopener">Como chegar</a></div>
                   </div>
                   <div class="profile-tabs"><button class="active" data-profile-tab="gallery">Galeria</button><button data-profile-tab="info">Informações</button><button data-profile-tab="performance">Desempenho</button></div>
                   <div class="profile-tab-content active" id="profile-gallery"><div class="profile-empty">Sua galeria aparecerá aqui quando você adicionar fotos da empresa.</div></div>
@@ -57,10 +61,22 @@
                     <label>Categoria<select id="business-category" required></select></label>
                     <label>Descrição<textarea id="business-description" required maxlength="240" rows="3" placeholder="Conte brevemente sobre sua empresa"></textarea></label>
                     <div class="form-row"><label>Cidade / bairro<input id="business-location" required placeholder="Ex.: Centro, São Paulo" /></label><label>Horário<input id="business-hours" placeholder="Ex.: Seg a sáb, 8h às 18h" /></label></div>
-                    <div class="form-row"><label>WhatsApp<input id="business-whatsapp" type="tel" inputmode="numeric" placeholder="(11) 99999-9999" /></label><label>Instagram<input id="business-instagram" type="url" placeholder="https://instagram.com/suaempresa" /></label></div>
-                    <div class="form-row"><label>Localização no mapa<input id="business-map" type="url" placeholder="https://maps.google.com/..." /></label><label>Link para pedidos<input id="business-order" type="url" placeholder="https://..." /></label></div>
-                    <label class="checkbox-label"><input id="business-published" type="checkbox" checked /> Publicar anúncio imediatamente</label>
+                    <div class="form-row"><label>Telefone<input id="business-phone" type="tel" inputmode="tel" placeholder="(11) 3333-4444" /></label><label>WhatsApp<input id="business-whatsapp" type="tel" inputmode="numeric" placeholder="(11) 99999-9999" /></label></div>
+                    <label>Endereço completo<input id="business-address" maxlength="180" placeholder="Rua, número, complemento, cidade - UF" /></label>
+                    <div class="form-row"><label>Latitude<input id="business-latitude" type="number" min="-90" max="90" step="any" placeholder="-23.5505" /></label><label>Longitude<input id="business-longitude" type="number" min="-180" max="180" step="any" placeholder="-46.6333" /></label></div>
+                    <div class="form-row"><label>Instagram<input id="business-instagram" type="url" placeholder="https://instagram.com/suaempresa" /></label><label>Link para pedidos<input id="business-order" type="url" placeholder="https://..." /></label></div>
+                    <label>Localização no mapa<input id="business-map" type="url" placeholder="https://maps.google.com/..." /></label>
+                    <label>Categorias secundárias<select id="business-secondary-categories" multiple></select></label>
+                    <label>Galeria de imagens<input id="business-gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple /></label>
+                    <label>Status do anúncio
+                      <select id="business-status" required>
+                        <option value="draft">Rascunho</option>
+                        <option value="published">Publicado</option>
+                        <option value="paused">Pausado</option>
+                      </select>
+                    </label>
                     <p class="form-message" id="form-message" role="status"></p>
+                    <button class="outline-button" type="button" data-action="preview-business">Pré-visualizar anúncio</button>
                     <button class="primary-button" type="submit">Salvar alterações</button>
                   </form>
                 </div>
@@ -75,9 +91,10 @@
       <div class="auth-heading"><span class="brand-mark">P</span><p class="eyebrow purple">Área empresarial</p><h2 id="auth-title">Cadastre-se para acessar o painel</h2><p id="auth-description">Informe seu e-mail empresarial e crie uma senha com pelo menos 8 caracteres.</p></div>
       <form id="auth-form" class="business-form">
         <label>E-mail empresarial<input id="auth-email" type="email" required placeholder="voce@empresa.com" /></label>
-        <label>Senha<input id="auth-password" type="password" minlength="8" required placeholder="Digite sua senha" /></label>
+        <label id="auth-password-label">Senha<input id="auth-password" type="password" minlength="8" required placeholder="Digite sua senha" /></label>
         <p class="form-message" id="auth-message" role="status"></p>
         <button class="primary-button" id="auth-submit" type="submit">Concluir cadastro</button>
+        <button class="text-button" id="auth-reset-toggle" type="button" hidden>Esqueci minha senha</button>
         <button class="text-button" id="auth-mode-toggle" type="button">Já tenho uma conta</button>
       </form>
     </section>

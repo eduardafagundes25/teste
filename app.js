@@ -1,6 +1,7 @@
-import { addInteraction, fetchBusinesses, getCurrentUser, signIn, signOut, signUp, upsertBusiness } from './supabase-client.js';
+import { addBusinessGalleryImage, addInteraction, fetchBusinesses, fetchModerationBusinesses, getCurrentUser, isCurrentUserAdmin, migrateLegacyBusinessImages, moderateBusiness, sendPasswordResetEmail, signIn, signOut, signUp, updatePassword, uploadBusinessImage, upsertBusiness } from './supabase-client.js';
 
 const STORAGE_KEY = 'procure-aonde-data-v1';
+const VISITOR_KEY = 'procure-aonde-visitor-id';
 
 const categories = [
   { name: 'Alimentação', icon: '🍴', tone: 'food' },
@@ -22,6 +23,19 @@ let authMode = 'signup';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const THEME_KEY = 'procure-aonde-theme';
+const visitorId = getVisitorId();
+const interactionCooldowns = new Map();
+const statusLabels = { draft: 'Rascunho', published: 'Publicado', paused: 'Pausado' };
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+function getVisitorId() {
+  const existing = localStorage.getItem(VISITOR_KEY);
+  if (existing && /^[a-zA-Z0-9_-]{16,128}$/.test(existing)) return existing;
+  const generated = `${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`;
+  localStorage.setItem(VISITOR_KEY, generated);
+  return generated;
+}
 
 function setTheme(theme) {
   const isDark = theme === 'dark';
@@ -64,10 +78,24 @@ function handleAuthCallbackError() {
 }
 
 async function loadData() {
+  if ($('#public-status')) $('#public-status').textContent = 'Carregando empresas...';
   try {
     state.businesses = await fetchBusinesses();
+    if (currentUser) {
+      for (const business of state.businesses.filter((item) => item.owner_id === currentUser.id)) {
+        if (business.logo?.startsWith('data:image/') || business.cover?.startsWith('data:image/')) {
+          try {
+            const migrated = await migrateLegacyBusinessImages(business);
+            state.businesses = state.businesses.map((item) => item.id === business.id ? { ...item, ...migrated } : item);
+          } catch (error) {
+            console.error('Não foi possível migrar uma imagem legada para o Storage.', error);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Não foi possível carregar os dados do Supabase.', error);
+    if ($('#public-status')) $('#public-status').textContent = 'Não foi possível carregar as empresas. Tente novamente.';
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       state.businesses = Array.isArray(saved) ? saved : starterBusinesses;
@@ -87,12 +115,22 @@ function renderCategories() {
   $('#drawer-list').innerHTML = `<a class="drawer-profile-link" href="htmladm.html">Perfil</a><button data-category="">Todas as categorias</button>${categories.map((category) => `<button data-category="${category.name}">${category.icon} &nbsp; ${category.name}</button>`).join('')}`;
 }
 
+function renderPopularCategories() {
+  const counts = state.businesses.filter((business) => business.status === 'published').reduce((result, business) => {
+    [business.category, ...(business.secondary_categories || business.secondaryCategories || [])].forEach((category) => { result[category] = (result[category] || 0) + 1; });
+    return result;
+  }, {});
+  const popular = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if ($('#popular-categories')) $('#popular-categories').innerHTML = (popular.length ? popular : categories.slice(0, 6).map((category) => [category.name, 0]))
+    .map(([name]) => `<button class="category-card" data-category="${escapeHtml(name)}"><span class="category-icon">${iconFor({ category: name })}</span><strong>${escapeHtml(name)}</strong></button>`).join('');
+}
+
 function getVisibleBusinesses() {
   const normalizedQuery = state.query.toLocaleLowerCase();
   const normalizedLocation = state.location.toLocaleLowerCase();
   let visible = state.businesses.filter((business) => business.status === 'published' &&
-    (!normalizedQuery || `${business.name} ${business.category} ${business.description}`.toLocaleLowerCase().includes(normalizedQuery)) &&
-    (!normalizedLocation || business.location.toLocaleLowerCase().includes(normalizedLocation)) &&
+    (!normalizedQuery || `${business.name} ${business.category} ${(business.secondary_categories || []).join(' ')} ${business.description}`.toLocaleLowerCase().includes(normalizedQuery)) &&
+    (!normalizedLocation || `${business.location} ${business.address || ''}`.toLocaleLowerCase().includes(normalizedLocation)) &&
     (!state.category || business.category === state.category));
   if (state.sort === 'clicks') visible.sort((a, b) => totalClicks(b) - totalClicks(a));
   if (state.sort === 'recent') visible.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -107,7 +145,7 @@ function businessCard(business) {
     business.instagram && `<a class="action-button" href="${escapeHtml(business.instagram)}" target="_blank" rel="noopener" data-interaction="instagram" data-id="${business.id}">Instagram</a>`,
     business.map && `<a class="action-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${business.id}">Localização</a>`,
   ].filter(Boolean).join('');
-  return `<article class="business-card"><button class="business-cover ${category.tone}" data-business="${business.id}" aria-label="Ver detalhes de ${escapeHtml(business.name)}">${avatar}</button><div class="business-body"><span class="business-category">${escapeHtml(business.category)}</span><h3>${escapeHtml(business.name)}</h3><p class="business-description">${escapeHtml(business.description)}</p><div class="business-meta"><span>⌖ ${escapeHtml(business.location)}</span><span>◷ ${escapeHtml(business.hours || 'Consulte')}</span></div><div class="business-actions">${actions}<button class="action-button" data-business="${business.id}">Detalhes</button></div></div></article>`;
+  return `<article class="business-card"><button class="business-cover ${category.tone}" data-business="${business.id}" aria-label="Ver detalhes de ${escapeHtml(business.name)}">${avatar}</button><div class="business-body"><span class="business-category">${escapeHtml(business.category)}</span><h3>${escapeHtml(business.name)}</h3><p class="business-description">${escapeHtml(business.description)}</p><div class="business-meta"><span>⌖ ${escapeHtml(business.address || business.location)}</span><span>◷ ${escapeHtml(business.hours || 'Consulte')}</span></div><div class="business-actions">${actions}<button class="action-button" data-business="${business.id}">Detalhes</button></div></div></article>`;
 }
 
 function renderBusinesses() {
@@ -115,19 +153,27 @@ function renderBusinesses() {
   $('#business-grid').innerHTML = visible.length ? visible.map(businessCard).join('') : '<div class="empty-state"><h3>Nenhuma empresa encontrada</h3><p>Tente buscar por outro termo ou limpe os filtros.</p><button class="outline-button" data-action="clear-filters">Limpar filtros</button></div>';
   const filters = [state.query && `Busca: “${escapeHtml(state.query)}”`, state.location && `Local: ${escapeHtml(state.location)}`, state.category && `Categoria: ${escapeHtml(state.category)}`].filter(Boolean);
   $('#active-filters').innerHTML = filters.length ? `${filters.join(' · ')} <button class="text-button" data-action="clear-filters">Limpar</button>` : '';
+  if ($('#public-status')) $('#public-status').textContent = `${visible.length} empresa${visible.length === 1 ? '' : 's'} encontrada${visible.length === 1 ? '' : 's'}.`;
 }
 
 async function recordInteraction(id, type) {
   const business = state.businesses.find((item) => item.id === id);
   if (!business) return;
   const key = type === 'view' ? 'view' : type;
-  business.interactions = business.interactions || {};
-  business.interactions[key] = (business.interactions[key] || 0) + 1;
-  saveData();
+  const cooldownKey = `${id}:${key}`;
+  const lastInteraction = interactionCooldowns.get(cooldownKey) || 0;
+  if (Date.now() - lastInteraction < 30000) return;
+  interactionCooldowns.set(cooldownKey, Date.now());
   try {
-    await addInteraction(id, key);
+    const accepted = await addInteraction(id, key, visitorId);
+    if (accepted) {
+      business.interactions = business.interactions || {};
+      business.interactions[key] = (business.interactions[key] || 0) + 1;
+      saveData();
+    }
   } catch (error) {
     console.error('Não foi possível registrar a interação no Supabase.', error);
+    interactionCooldowns.delete(cooldownKey);
   }
 }
 
@@ -141,9 +187,11 @@ function openBusiness(id) {
     business.instagram && `<a class="outline-button" href="${escapeHtml(business.instagram)}" target="_blank" rel="noopener" data-interaction="instagram" data-id="${id}">Ver Instagram</a>`,
     business.map && `<a class="outline-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${id}">Abrir localização</a>`,
     business.order && `<a class="outline-button" href="${escapeHtml(business.order)}" target="_blank" rel="noopener" data-interaction="order" data-id="${id}">Fazer um pedido</a>`,
+    business.phone && `<a class="outline-button" href="tel:${escapeHtml(business.phone.replace(/[^\d+]/g, ''))}" data-interaction="phone" data-id="${id}">Ligar</a>`,
   ].filter(Boolean).join('');
   const avatar = business.logo ? `<span class="business-avatar business-logo-avatar"><img src="${escapeHtml(business.logo)}" alt="Logo de ${escapeHtml(business.name)}" /></span>` : `<span class="business-avatar">${iconFor(business)}</span>`;
-  $('#modal-content').innerHTML = `<div class="modal-hero"><div class="business-cover ${category.tone}">${avatar}</div><div><span class="business-category">${escapeHtml(business.category)}</span><h2 id="modal-title">${escapeHtml(business.name)}</h2><p class="business-meta">⌖ ${escapeHtml(business.location)}</p></div></div><p class="modal-description">${escapeHtml(business.description)}</p><p class="business-meta">◷ ${escapeHtml(business.hours || 'Horário não informado')}</p><div class="modal-stat">Este anúncio já recebeu ${totalClicks(business)} interações.</div><div class="modal-actions">${contactLinks}</div>`;
+  const gallery = (business.gallery || []).map((image) => `<img src="${escapeHtml(image.public_url)}" alt="${escapeHtml(image.alt_text || business.name)}" loading="lazy" />`).join('');
+  $('#modal-content').innerHTML = `<div class="modal-hero"><div class="business-cover ${category.tone}">${avatar}</div><div><span class="business-category">${escapeHtml(business.category)}</span><h2 id="modal-title">${escapeHtml(business.name)}</h2><p class="business-meta">⌖ ${escapeHtml(business.address || business.location)}</p></div></div><p class="modal-description">${escapeHtml(business.description)}</p><p class="business-meta">◷ ${escapeHtml(business.hours || 'Horário não informado')}</p>${business.phone ? `<p class="business-meta">☎ ${escapeHtml(business.phone)}</p>` : ''}${gallery ? `<div class="business-gallery">${gallery}</div>` : ''}<div class="modal-stat">Este anúncio já recebeu ${totalClicks(business)} interações.</div><div class="modal-actions">${contactLinks}</div>`;
   $('#modal-backdrop').hidden = false; $('#business-modal').hidden = false;
 }
 
@@ -156,10 +204,10 @@ function toggleDrawer() { $('#services-drawer').classList.contains('open') ? clo
 async function showAdmin() {
   await dataReady;
   currentUser = await getCurrentUser();
-  if (!hasAdminSession()) { showAuth(); return; }
+  if (!hasAdminSession()) { showPublic(); showAuth(); return; }
   await loadData();
   if (!getOwnedBusiness()) { showCompanyOnboarding(); return; }
-  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true; renderAdmin(); window.scrollTo(0, 0);
+  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true; renderAdmin(); window.scrollTo(0, 0);
 }
 function showPublic() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = true; document.body.classList.remove('admin-active'); window.scrollTo(0, 0); }
 function hasAdminSession() {
@@ -186,15 +234,51 @@ async function logout() {
   showAuth();
 }
 function showCompanyOnboarding() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = false; document.body.classList.remove('admin-active'); $('#profile-panel-slot').appendChild($('#profile-panel')); $('#profile-panel').classList.add('onboarding-profile'); $('#profile-view').hidden = true; $('#profile-editor').hidden = false; resetForm(); window.scrollTo(0, 0); }
+function getPeriodInteractions(business, period) {
+  const history = business.interactionHistory || [];
+  if (period === 'total') return history;
+  const now = new Date();
+  const cutoff = period === 'today'
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    : new Date(now.getTime() - Number(period) * 24 * 60 * 60 * 1000);
+  return history.filter((interaction) => new Date(interaction.created_at) >= cutoff);
+}
 function renderAnalytics() {
   const businesses = [getOwnedBusiness()].filter(Boolean);
+  const period = $('#analytics-period')?.value || 'total';
   const totals = businesses.reduce((acc, item) => {
-    Object.keys(acc).forEach((key) => { acc[key] += item.interactions[key] || 0; });
+    if (period === 'total' && !(item.interactionHistory || []).length) {
+      Object.keys(acc).forEach((key) => { acc[key] += item.interactions?.[key] || 0; });
+    } else {
+      getPeriodInteractions(item, period).forEach(({ type }) => { acc[type] = (acc[type] || 0) + 1; });
+    }
     return acc;
   }, { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 });
   const labels = [['Visualizações', totals.view], ['WhatsApp', totals.whatsapp], ['Instagram', totals.instagram], ['Localização', totals.location], ['Pedidos', totals.order]];
   const max = Math.max(...labels.map(([, value]) => value), 1);
-  $('#analytics-bars').innerHTML = labels.map(([label, value]) => `<div class="analytics-row"><span>${label}</span><div class="analytics-track"><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div><strong>${value}</strong></div>`).join('');
+  const days = {};
+  businesses.flatMap((business) => getPeriodInteractions(business, period)).forEach((interaction) => {
+    const day = new Date(interaction.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    days[day] = (days[day] || 0) + 1;
+  });
+  const maxDay = Math.max(...Object.values(days), 1);
+  const evolution = Object.entries(days).slice(-7).map(([day, value]) => `<div class="analytics-row"><span>${day}</span><div class="analytics-track"><i style="width:${Math.max((value / maxDay) * 100, value ? 5 : 0)}%"></i></div><strong>${value}</strong></div>`).join('');
+  $('#analytics-bars').innerHTML = `${labels.map(([label, value]) => `<div class="analytics-row"><span>${label}</span><div class="analytics-track"><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div><strong>${value}</strong></div>`).join('')}<p class="eyebrow purple">Evolução diária</p>${evolution || '<p class="business-meta">Sem interações no período.</p>'}`;
+}
+
+async function renderModeration() {
+  if (!$('#moderation-panel') || !(await isCurrentUserAdmin())) return;
+  $('#moderation-panel').hidden = false;
+  const businesses = await fetchModerationBusinesses();
+  $('#moderation-list').innerHTML = businesses.map((business) => `<div class="analytics-row"><span>${escapeHtml(business.name)} · ${escapeHtml(business.location)}</span><strong>${statusLabels[business.status]}</strong><select data-moderate="${business.id}"><option value="draft" ${business.status === 'draft' ? 'selected' : ''}>Rascunho</option><option value="published" ${business.status === 'published' ? 'selected' : ''}>Publicado</option><option value="paused" ${business.status === 'paused' ? 'selected' : ''}>Pausado</option></select></div>`).join('');
+}
+
+function previewBusiness() {
+  const previous = state.businesses.find((item) => item.id === state.editingId);
+  const business = collectBusinessForm(previous);
+  const category = categoryInfo(business.category);
+  $('#modal-content').innerHTML = `<div class="modal-hero"><div class="business-cover ${category.tone}"><span class="business-avatar">${iconFor(business)}</span></div><div><span class="business-category">${escapeHtml(business.category)}</span><h2 id="modal-title">${escapeHtml(business.name || 'Pré-visualização')}</h2><p class="business-meta">⌖ ${escapeHtml(business.address || business.location || 'Localização')}</p></div></div><p class="modal-description">${escapeHtml(business.description || 'Descrição da empresa')}</p><p class="business-meta">◷ ${escapeHtml(business.hours || 'Horário não informado')}</p><div class="modal-stat">Status: ${statusLabels[business.status]}</div>`;
+  $('#modal-backdrop').hidden = false; $('#business-modal').hidden = false;
 }
 function renderAdmin() {
   const businesses = [getOwnedBusiness()].filter(Boolean);
@@ -208,7 +292,7 @@ function renderAdmin() {
 function renderProfile(business) {
   if (!business) return;
   fillForm(business.id);
-  $('#editor-title').textContent = 'Perfil da Empresa'; $('#profile-status').textContent = business.status === 'published' ? 'Publicado' : 'Rascunho';
+  $('#editor-title').textContent = 'Perfil da Empresa'; $('#profile-status').textContent = statusLabels[business.status] || 'Rascunho';
   $('#business-logo-preview').style.backgroundImage = business.logo ? `url("${business.logo}")` : '';
   $('#business-logo-placeholder').hidden = Boolean(business.logo);
   $('#profile-name').textContent = business.name;
@@ -217,7 +301,7 @@ function renderProfile(business) {
   $('#profile-location-cover').textContent = business.location;
   $('#profile-hours').textContent = business.hours || 'Horário não informado';
   $('#profile-info-category').textContent = business.category;
-  $('#profile-info-location').textContent = business.location;
+  $('#profile-info-location').textContent = business.address || business.location;
   $('#profile-info-hours').textContent = business.hours || 'Não informado';
   $('#profile-info-order').textContent = business.order ? 'Link disponível' : 'Não informado';
   $('#profile-logo').style.backgroundImage = business.logo ? `url("${business.logo}")` : '';
@@ -230,6 +314,7 @@ function renderProfile(business) {
   $('#profile-whatsapp').textContent = totals.whatsapp || 0;
   setProfileLink('#profile-whatsapp-link', whatsappLink(business.whatsapp), 'WhatsApp', 'whatsapp');
   setProfileLink('#profile-order-link', safeLink(business.order), 'Fazer pedido', 'order');
+  setProfileLink('#profile-phone-link', business.phone ? `tel:${business.phone.replace(/[^\d+]/g, '')}` : '', 'Telefone', 'phone');
   setProfileLink('#profile-instagram-link', safeLink(business.instagram), 'Instagram', 'instagram');
   setProfileLink('#profile-map-link', safeLink(business.map), 'Como chegar', 'location');
   renderProfilePerformance(business);
@@ -238,15 +323,36 @@ function setProfileLink(selector, href, label, interaction) { const link = $(sel
 function renderProfilePerformance(business) {
   const values = [['Visualizações', business.interactions?.view || 0], ['WhatsApp', business.interactions?.whatsapp || 0], ['Instagram', business.interactions?.instagram || 0], ['Localização', business.interactions?.location || 0], ['Pedidos', business.interactions?.order || 0]];
   const max = Math.max(...values.map(([, value]) => value), 1);
-  $('#profile-performance-bars').innerHTML = values.map(([label, value]) => `<div class="profile-bar"><div><span>${label}</span><strong>${value}</strong></div><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div>`).join('');
+  const history = business.interactionHistory || [];
+  const last = history.map((item) => new Date(item.created_at)).sort((a, b) => b - a)[0];
+  $('#profile-performance-bars').innerHTML = `${values.map(([label, value]) => `<div class="profile-bar"><div><span>${label}</span><strong>${value}</strong></div><i style="width:${Math.max((value / max) * 100, value ? 5 : 0)}%"></i></div>`).join('')}<p class="business-meta">Última interação: ${last ? last.toLocaleString('pt-BR') : 'Ainda não registrada'}</p>`;
 }
-function resetForm() { state.editingId = null; state.logoData = ''; state.coverData = ''; $('#editor-title').textContent = 'Cadastro da empresa'; $('#business-form').reset(); $('#business-id').value = ''; $('#business-published').checked = true; $('#business-logo-preview').style.backgroundImage = ''; $('#business-logo-placeholder').hidden = false; $('#form-message').textContent = ''; }
+function resetForm() { state.editingId = null; state.logoData = ''; state.coverData = ''; $('#editor-title').textContent = 'Cadastro da empresa'; $('#business-form').reset(); $('#business-id').value = ''; $('#business-status').value = 'draft'; $('#business-logo-preview').style.backgroundImage = ''; $('#business-logo-placeholder').hidden = false; $('#form-message').textContent = ''; }
 function fillForm(id) {
   const business = state.businesses.find((item) => item.id === id); if (!business) return;
   state.editingId = id; $('#business-id').value = id;
-  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order']].forEach(([field, key]) => { $(`#${field}`).value = business[key] || ''; });
+  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-phone', 'phone'], ['business-address', 'address'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order'], ['business-latitude', 'latitude'], ['business-longitude', 'longitude']].forEach(([field, key]) => { $(`#${field}`).value = business[key] ?? ''; });
   $('#business-whatsapp').value = whatsappNumber(business.whatsapp || '');
-  $('#business-category').value = business.category; $('#business-published').checked = business.status === 'published'; $('#form-message').textContent = ''; $('#profile-panel').scrollIntoView({ behavior: 'smooth' });
+  $('#business-category').value = business.category; [...$('#business-secondary-categories').options].forEach((option) => { option.selected = (business.secondary_categories || []).includes(option.value); }); $('#business-status').value = business.status || 'draft'; $('#form-message').textContent = ''; $('#profile-panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+function validUrl(value) { return !value || /^https?:\/\/[^\s]+$/i.test(value); }
+function validPhone(value) { return !value || /^[+\d()\s-]{8,20}$/.test(value); }
+function validImage(file) { return allowedImageTypes.includes(file.type) && file.size <= MAX_IMAGE_SIZE; }
+function collectBusinessForm(previous) {
+  return {
+    id: state.editingId || `business-${Date.now()}`, owner_id: currentUser.id,
+    name: $('#business-name').value.trim(), category: $('#business-category').value,
+    secondaryCategories: [...$('#business-secondary-categories').selectedOptions].map((option) => option.value),
+    description: $('#business-description').value.trim(), location: $('#business-location').value.trim(),
+    address: $('#business-address').value.trim(), latitude: $('#business-latitude').value ? Number($('#business-latitude').value) : null,
+    longitude: $('#business-longitude').value ? Number($('#business-longitude').value) : null, hours: $('#business-hours').value.trim(),
+    phone: $('#business-phone').value.trim(), whatsapp: whatsappLink($('#business-whatsapp').value.trim()),
+    instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(),
+    logo: state.logoData || previous?.logo || '', cover: state.coverData || previous?.cover || '',
+    status: $('#business-status').value, createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10),
+    interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 },
+  };
 }
 
 function handleBusinessSubmit(event) {
@@ -255,15 +361,41 @@ function handleBusinessSubmit(event) {
   if (submitButton.disabled) return;
   const id = state.editingId || `business-${Date.now()}`;
   const previous = state.businesses.find((item) => item.id === id);
-  const business = { id, owner_id: currentUser.id, name: $('#business-name').value.trim(), category: $('#business-category').value, description: $('#business-description').value.trim(), location: $('#business-location').value.trim(), hours: $('#business-hours').value.trim(), whatsapp: whatsappLink($('#business-whatsapp').value.trim()), instagram: $('#business-instagram').value.trim(), map: $('#business-map').value.trim(), order: $('#business-order').value.trim(), logo: state.logoData || previous?.logo || '', cover: state.coverData || previous?.cover || '', status: $('#business-published').checked ? 'published' : 'draft', createdAt: previous?.createdAt || new Date().toISOString().slice(0, 10), interactions: previous?.interactions || { view: 0, whatsapp: 0, instagram: 0, location: 0, order: 0 } };
+  const business = collectBusinessForm(previous);
+  business.id = id;
   if (!business.name || !business.description || !business.location) { $('#form-message').textContent = 'Preencha nome, descrição e localização.'; return; }
+  if (!validPhone(business.phone) || !validPhone($('#business-whatsapp').value) || ![business.instagram, business.map, business.order].every(validUrl)) { $('#form-message').textContent = 'Verifique telefone e URLs informados.'; return; }
+  if (![business.latitude, business.longitude].every((value) => value === null || Number.isFinite(value))) { $('#form-message').textContent = 'Latitude e longitude inválidas.'; return; }
+  const logoData = state.logoData;
+  const coverData = state.coverData;
   state.logoData = '';
   state.coverData = '';
   submitButton.disabled = true;
   submitButton.textContent = 'Salvando...';
-  upsertBusiness(business)
+  (async () => {
+    const files = [...($('#business-gallery').files || [])];
+    if (files.some((file) => !validImage(file))) throw new Error('Cada imagem deve ser JPG, PNG ou WEBP com até 5 MB.');
+    if (logoData?.startsWith('data:image/')) {
+      const response = await fetch(logoData);
+      const blob = await response.blob();
+      business.logo = (await uploadBusinessImage(new File([blob], 'logo.jpg', { type: blob.type }), id, 'logo')).publicUrl;
+    }
+    if (coverData?.startsWith('data:image/')) {
+      const response = await fetch(coverData);
+      const blob = await response.blob();
+      business.cover = (await uploadBusinessImage(new File([blob], 'cover.jpg', { type: blob.type }), id, 'cover')).publicUrl;
+    }
+    const saved = await upsertBusiness(business);
+    for (const [index, file] of files.entries()) await addBusinessGalleryImage(id, await uploadBusinessImage(file, id), index);
+    return saved;
+  })()
     .then((savedBusiness) => {
-      if (previous) state.businesses = state.businesses.map((item) => item.id === id ? savedBusiness : item);
+      if (previous) {
+        savedBusiness.interactionHistory = previous.interactionHistory;
+        savedBusiness.interactions = previous.interactions;
+        savedBusiness.gallery = previous.gallery;
+        state.businesses = state.businesses.map((item) => item.id === id ? savedBusiness : item);
+      }
       else state.businesses.push(savedBusiness);
       saveData();
       $('#form-message').textContent = 'Dados salvos com sucesso.';
@@ -292,14 +424,17 @@ document.addEventListener('click', (event) => {
   const editButton = event.target.closest('[data-edit]'); if (editButton) { fillForm(editButton.dataset.edit); return; }
   const profileTab = event.target.closest('[data-profile-tab]'); if (profileTab) { const tab = profileTab.dataset.profileTab; $$('.profile-tabs button').forEach((button) => button.classList.toggle('active', button === profileTab)); $$('.profile-tab-content').forEach((content) => content.classList.toggle('active', content.id === `profile-${tab}`)); return; }
   const action = event.target.closest('[data-action]')?.dataset.action;
-  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'toggle-theme') toggleTheme(); if (action === 'edit-profile') { $('#profile-view').hidden = true; $('#profile-editor').hidden = false; } if (action === 'close-profile-editor') { $('#profile-editor').hidden = true; $('#profile-view').hidden = false; } if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); }
+  if (action === 'admin') showAdmin(); if (action === 'home') showPublic(); if (action === 'open-services') openDrawer(); if (action === 'toggle-services') toggleDrawer(); if (action === 'close-services') closeDrawer(); if (action === 'close-modal') closeModal(); if (action === 'close-auth') closeAuth(); if (action === 'logout') logout(); if (action === 'toggle-theme') toggleTheme(); if (action === 'edit-profile') { $('#profile-view').hidden = true; $('#profile-editor').hidden = false; } if (action === 'close-profile-editor') { $('#profile-editor').hidden = true; $('#profile-view').hidden = false; } if (action === 'preview-business') previewBusiness(); if (action === 'clear-filters') { state.query = ''; state.location = ''; state.category = ''; $('#hero-query').value = ''; $('#hero-location').value = ''; renderCategories(); renderBusinesses(); }
+  const moderation = event.target.closest('[data-moderate]'); if (moderation) moderateBusiness(moderation.dataset.moderate, moderation.value).then(() => loadData()).then(() => renderModeration()).catch((error) => console.error('Não foi possível moderar a empresa.', error));
 });
 if ($('#hero-search-form')) $('#hero-search-form').addEventListener('submit', (event) => { event.preventDefault(); search($('#hero-query').value); });
 if ($('#sort-select')) $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; renderBusinesses(); });
+if ($('#analytics-period')) $('#analytics-period').addEventListener('change', renderAnalytics);
 if ($('#business-form')) $('#business-form').addEventListener('submit', handleBusinessSubmit);
 if ($('#business-logo')) $('#business-logo').addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) return;
+  if (!validImage(file)) { event.target.value = ''; $('#form-message').textContent = 'A logo deve ser JPG, PNG ou WEBP com até 5 MB.'; return; }
   const reader = new FileReader();
   reader.addEventListener('load', () => { state.logoData = reader.result; $('#business-logo-preview').style.backgroundImage = `url("${reader.result}")`; $('#business-logo-placeholder').hidden = true; });
   reader.readAsDataURL(file);
@@ -307,20 +442,44 @@ if ($('#business-logo')) $('#business-logo').addEventListener('change', (event) 
 if ($('#business-cover')) $('#business-cover').addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) return;
+  if (!validImage(file)) { event.target.value = ''; $('#form-message').textContent = 'O banner deve ser JPG, PNG ou WEBP com até 5 MB.'; return; }
   const reader = new FileReader();
   reader.addEventListener('load', () => { state.coverData = reader.result; });
   reader.readAsDataURL(file);
 });
-if ($('#auth-mode-toggle')) $('#auth-mode-toggle').addEventListener('click', () => {
-  authMode = authMode === 'signup' ? 'signin' : 'signup';
-  $('#auth-title').textContent = authMode === 'signup' ? 'Cadastre-se para acessar o painel' : 'Entre para acessar o painel';
-  $('#auth-description').textContent = authMode === 'signup'
-    ? 'Informe seu e-mail empresarial e crie uma senha com pelo menos 8 caracteres.'
-    : 'Use o e-mail e a senha cadastrados no Supabase.';
-  $('#auth-submit').textContent = authMode === 'signup' ? 'Concluir cadastro' : 'Entrar';
-  $('#auth-mode-toggle').textContent = authMode === 'signup' ? 'Já tenho uma conta' : 'Ainda não tenho uma conta';
-  $('#auth-message').textContent = '';
+if ($('#business-gallery')) $('#business-gallery').addEventListener('change', (event) => {
+  const invalid = [...event.target.files].find((file) => !validImage(file));
+  if (invalid) { event.target.value = ''; $('#form-message').textContent = 'Cada imagem deve ser JPG, PNG ou WEBP com até 5 MB.'; }
 });
+if ($('#business-phone')) $('#business-phone').addEventListener('blur', (event) => { if (!validPhone(event.target.value)) $('#form-message').textContent = 'Informe um telefone válido.'; });
+function configureAuthForm(mode) {
+  authMode = mode;
+  const isSignup = mode === 'signup';
+  const isSignin = mode === 'signin';
+  const isReset = mode === 'reset';
+  const isForgot = mode === 'forgot';
+  $('#auth-title').textContent = isSignup ? 'Cadastre-se para acessar o painel' : isSignin ? 'Entre para acessar o painel' : isForgot ? 'Recupere sua senha' : 'Redefina sua senha';
+  $('#auth-description').textContent = isSignup
+    ? 'Informe seu e-mail empresarial e crie uma senha com pelo menos 8 caracteres.'
+    : isSignin
+      ? 'Use o e-mail e a senha cadastrados no Supabase.'
+      : isForgot
+        ? 'Informe seu e-mail e enviaremos um link para criar uma nova senha.'
+      : 'Crie uma nova senha com pelo menos 8 caracteres.';
+  $('#auth-email').closest('label').hidden = isReset;
+  $('#auth-email').required = !isReset;
+  $('#auth-password-label').hidden = isForgot;
+  $('#auth-password').required = !isForgot;
+  $('#auth-password-label').firstChild.textContent = isReset ? 'Nova senha' : 'Senha';
+  $('#auth-password').placeholder = isReset ? 'Digite sua nova senha' : 'Digite sua senha';
+  $('#auth-submit').textContent = isSignup ? 'Concluir cadastro' : isSignin ? 'Entrar' : isForgot ? 'Enviar link' : 'Salvar nova senha';
+  $('#auth-mode-toggle').hidden = isReset;
+  $('#auth-mode-toggle').textContent = isForgot ? 'Voltar para entrar' : isSignup ? 'Já tenho uma conta' : 'Ainda não tenho uma conta';
+  $('#auth-reset-toggle').hidden = !isSignin;
+  $('#auth-message').textContent = '';
+}
+if ($('#auth-mode-toggle')) $('#auth-mode-toggle').addEventListener('click', () => configureAuthForm(authMode === 'forgot' ? 'signin' : authMode === 'signup' ? 'signin' : 'signup'));
+if ($('#auth-reset-toggle')) $('#auth-reset-toggle').addEventListener('click', () => configureAuthForm('forgot'));
 if ($('#auth-form')) $('#auth-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!$('#auth-form').reportValidity()) return;
@@ -330,9 +489,21 @@ if ($('#auth-form')) $('#auth-form').addEventListener('submit', async (event) =>
   submitButton.disabled = true;
   $('#auth-message').textContent = 'Conectando ao Supabase...';
   try {
-    const { data, error } = authMode === 'signup'
-      ? await signUp(email, password)
-      : await signIn(email, password);
+    if (authMode === 'reset') {
+      const { error } = await updatePassword(password);
+      if (error) throw error;
+      $('#auth-message').textContent = 'Senha alterada com sucesso.';
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      setTimeout(() => { closeAuth(); showAdmin(); }, 600);
+      return;
+    }
+    if (authMode === 'forgot') {
+      const { error } = await sendPasswordResetEmail(email);
+      if (error) throw error;
+      $('#auth-message').textContent = 'Enviamos um link de recuperação para seu e-mail.';
+      return;
+    }
+    const { data, error } = authMode === 'signup' ? await signUp(email, password) : await signIn(email, password);
     if (error) throw error;
     currentUser = data.session ? data.user : null;
     if (!currentUser) {
@@ -360,11 +531,16 @@ dataReady.then(async () => {
   if ($('#business-grid')) {
     renderCategories();
     renderBusinesses();
+    renderPopularCategories();
   }
   if (document.body.dataset.page === 'admin') {
     $('#business-category').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
+    $('#business-secondary-categories').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
     currentUser = await getCurrentUser();
-    if (hasAdminSession()) showAdmin();
+    if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
+      configureAuthForm('reset');
+      showAuth();
+    } else if (hasAdminSession()) { await showAdmin(); await renderModeration(); }
     else showAuth();
   }
 });
