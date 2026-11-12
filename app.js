@@ -206,8 +206,13 @@ async function showAdmin() {
   currentUser = await getCurrentUser();
   if (!hasAdminSession()) { showPublic(); showAuth(); return; }
   await loadData();
-  if (!getOwnedBusiness()) { showCompanyOnboarding(); return; }
-  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true; renderAdmin(); window.scrollTo(0, 0);
+  const isAdmin = await isCurrentUserAdmin().catch(() => false);
+  const ownedBusiness = getOwnedBusiness();
+  if (!ownedBusiness && !isAdmin) { showCompanyOnboarding(); return; }
+  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true;
+  if (ownedBusiness) renderAdmin();
+  await renderModeration();
+  window.scrollTo(0, 0);
 }
 function showPublic() { $('#admin-view').hidden = true; $('#admin-onboarding').hidden = true; document.body.classList.remove('admin-active'); window.scrollTo(0, 0); }
 function hasAdminSession() {
@@ -540,7 +545,7 @@ dataReady.then(async () => {
     if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
       configureAuthForm('reset');
       showAuth();
-    } else if (hasAdminSession()) { await showAdmin(); await renderModeration(); }
+    } else if (hasAdminSession()) { await showAdmin(); }
     else showAuth();
   }
 });
