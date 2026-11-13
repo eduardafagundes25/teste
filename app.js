@@ -195,7 +195,7 @@ function openBusiness(id) {
   $('#modal-backdrop').hidden = false; $('#business-modal').hidden = false;
 }
 
-function closeModal() { $('#modal-backdrop').hidden = true; $('#business-modal').hidden = true; }
+function closeModal() { if ($('#modal-backdrop')) $('#modal-backdrop').hidden = true; if ($('#business-modal')) $('#business-modal').hidden = true; }
 function setCategory(category) { state.category = category; renderCategories(); renderBusinesses(); closeDrawer(); $('#results').scrollIntoView({ behavior: 'smooth' }); }
 function closeDrawer() { $('#services-drawer').classList.remove('open'); $('#services-drawer').setAttribute('aria-hidden', 'true'); $('#drawer-backdrop').hidden = true; $('.services-toggle').setAttribute('aria-expanded', 'false'); }
 function openDrawer() { $('#services-drawer').classList.add('open'); $('#services-drawer').setAttribute('aria-hidden', 'false'); $('#drawer-backdrop').hidden = false; $('.services-toggle').setAttribute('aria-expanded', 'true'); }
@@ -209,7 +209,7 @@ async function showAdmin() {
   const isAdmin = await isCurrentUserAdmin().catch(() => false);
   const ownedBusiness = getOwnedBusiness();
   if (!ownedBusiness && !isAdmin) { showCompanyOnboarding(); return; }
-  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true;
+  $('#admin-onboarding').hidden = true; $('#admin-view').hidden = false; $('#auth-modal').hidden = true; if (!$('#business-modal') || $('#business-modal').hidden) $('#modal-backdrop').hidden = true; document.body.classList.add('admin-active'); $('#admin-panels').appendChild($('#profile-panel')); $('#profile-panel').classList.remove('onboarding-profile'); $('#profile-view').hidden = false; $('#profile-editor').hidden = true;
   if (ownedBusiness) renderAdmin();
   await renderModeration();
   window.scrollTo(0, 0);
@@ -231,7 +231,7 @@ function whatsappNumber(value = '') {
 }
 function safeLink(value = '') { return /^https?:\/\//i.test(value) ? value : ''; }
 function showAuth() { $('#auth-modal').hidden = false; $('#modal-backdrop').hidden = false; }
-function closeAuth() { if (!hasAdminSession()) return; $('#auth-modal').hidden = true; if ($('#business-modal').hidden) $('#modal-backdrop').hidden = true; }
+function closeAuth() { if (!hasAdminSession()) return; $('#auth-modal').hidden = true; if (!$('#business-modal') || $('#business-modal').hidden) $('#modal-backdrop').hidden = true; }
 async function logout() {
   await signOut();
   currentUser = null;
