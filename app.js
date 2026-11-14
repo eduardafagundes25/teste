@@ -28,6 +28,7 @@ const interactionCooldowns = new Map();
 const statusLabels = { draft: 'Rascunho', published: 'Publicado', paused: 'Pausado' };
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const isRecoveryFlow = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery' || new URLSearchParams(window.location.search).get('type') === 'recovery';
 
 function getVisitorId() {
   const existing = localStorage.getItem(VISITOR_KEY);
@@ -542,7 +543,7 @@ dataReady.then(async () => {
     $('#business-category').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
     $('#business-secondary-categories').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
     currentUser = await getCurrentUser();
-    if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
+    if (isRecoveryFlow) {
       configureAuthForm('reset');
       showAuth();
     } else if (hasAdminSession()) { await showAdmin(); }
