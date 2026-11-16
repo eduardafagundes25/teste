@@ -23,7 +23,10 @@
           </aside>
           <main class="admin-main">
             <div class="admin-title-row">
-              <div><p class="eyebrow purple">Painel</p><h2>Visão geral</h2></div>
+              <div>
+                <p class="eyebrow purple">Painel</p>
+                <h2>Visão geral</h2>
+              </div>
               <div class="admin-actions"><button class="outline-button" data-action="logout">Sair</button></div>
             </div>
             <div class="stats-grid" id="stats-grid"></div>
@@ -55,26 +58,24 @@
                   <div class="panel-heading"><div><p class="eyebrow purple">Gerenciar perfil</p><h3 id="editor-title">Perfil da Empresa</h3></div><button class="text-button" type="button" data-action="close-profile-editor">Voltar ao perfil</button></div>
                   <form id="business-form" class="business-form">
                     <input type="hidden" id="business-id" />
-                    <div class="logo-field"><div class="business-logo-preview" id="business-logo-preview"><span id="business-logo-placeholder">P</span></div><label class="logo-upload">Alterar logo<input id="business-logo" type="file" accept="image/*" /></label></div>
-                    <label class="cover-upload">Banner da empresa<input id="business-cover" type="file" accept="image/*" /></label>
-                    <label>Nome da empresa<input id="business-name" required maxlength="80" placeholder="Ex.: Café da Praça" /></label>
-                    <label>Categoria<select id="business-category" required></select></label>
-                    <label>Descrição<textarea id="business-description" required maxlength="240" rows="3" placeholder="Conte brevemente sobre sua empresa"></textarea></label>
+                    <div class="logo-field">
+                      <div class="business-logo-preview" id="business-logo-preview"><span id="business-logo-placeholder">P</span></div>
+                      <label class="logo-upload">Alterar logo (Obrigatório)<input id="business-logo" type="file" accept="image/*" /></label>
+                    </div>
+                    <label class="cover-upload">Banner da empresa (Obrigatório)<input id="business-cover" type="file" accept="image/*" /></label>
+                    <label>Nome da empresa (Obrigatório)<input id="business-name" required maxlength="80" placeholder="Ex.: Café da Praça" /></label>
+                    <label>Categoria (Obrigatório)<select id="business-category" required></select></label>
+                    <label>Descrição (Opcional)<textarea id="business-description" required maxlength="240" rows="3" placeholder="Conte brevemente sobre sua empresa"></textarea></label>
                     <div class="form-row"><label>Cidade / bairro<input id="business-location" required placeholder="Ex.: Centro, São Paulo" /></label><label>Horário<input id="business-hours" placeholder="Ex.: Seg a sáb, 8h às 18h" /></label></div>
-                    <div class="form-row"><label>Telefone<input id="business-phone" type="tel" inputmode="tel" placeholder="(11) 3333-4444" /></label><label>WhatsApp<input id="business-whatsapp" type="tel" inputmode="numeric" placeholder="(11) 99999-9999" /></label></div>
+                    <div class="form-row"><label>WhatsApp (Opcional)<input id="business-whatsapp" type="tel" inputmode="numeric" placeholder="(11) 99999-9999" /></label></div>
                     <label>Endereço completo<input id="business-address" maxlength="180" placeholder="Rua, número, complemento, cidade - UF" /></label>
-                    <div class="form-row"><label>Latitude<input id="business-latitude" type="number" min="-90" max="90" step="any" placeholder="-23.5505" /></label><label>Longitude<input id="business-longitude" type="number" min="-180" max="180" step="any" placeholder="-46.6333" /></label></div>
+                    
                     <div class="form-row"><label>Instagram<input id="business-instagram" type="url" placeholder="https://instagram.com/suaempresa" /></label><label>Link para pedidos<input id="business-order" type="url" placeholder="https://..." /></label></div>
                     <label>Localização no mapa<input id="business-map" type="url" placeholder="https://maps.google.com/..." /></label>
-                    <label>Categorias secundárias<select id="business-secondary-categories" multiple></select></label>
+                    <!-- Substituído o select por container de botões -->
+                    <label>Categorias secundárias<div id="business-secondary-categories" class="category-buttons"></div></label>
                     <label>Galeria de imagens<input id="business-gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple /></label>
-                    <label>Status do anúncio
-                      <select id="business-status" required>
-                        <option value="draft">Rascunho</option>
-                        <option value="published">Publicado</option>
-                        <option value="paused">Pausado</option>
-                      </select>
-                    </label>
+                    <!-- Status do anúncio mantido apenas para uso administrativo (não exibido no formulário de cadastro/edição de empresa) -->
                     <p class="form-message" id="form-message" role="status"></p>
                     <button class="outline-button" type="button" data-action="preview-business">Pré-visualizar anúncio</button>
                     <button class="primary-button" type="submit">Salvar alterações</button>

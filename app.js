@@ -337,9 +337,11 @@ function resetForm() { state.editingId = null; state.logoData = ''; state.coverD
 function fillForm(id) {
   const business = state.businesses.find((item) => item.id === id); if (!business) return;
   state.editingId = id; $('#business-id').value = id;
-  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-phone', 'phone'], ['business-address', 'address'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order'], ['business-latitude', 'latitude'], ['business-longitude', 'longitude']].forEach(([field, key]) => { $(`#${field}`).value = business[key] ?? ''; });
+  [['business-name', 'name'], ['business-description', 'description'], ['business-location', 'location'], ['business-hours', 'hours'], ['business-address', 'address'], ['business-instagram', 'instagram'], ['business-map', 'map'], ['business-order', 'order']].forEach(([field, key]) => { $(`#${field}`).value = business[key] ?? ''; });
   $('#business-whatsapp').value = whatsappNumber(business.whatsapp || '');
-  $('#business-category').value = business.category; [...$('#business-secondary-categories').options].forEach((option) => { option.selected = (business.secondary_categories || []).includes(option.value); }); $('#business-status').value = business.status || 'draft'; $('#form-message').textContent = ''; $('#profile-panel').scrollIntoView({ behavior: 'smooth' });
+  $('#business-category').value = business.category; $('#business-secondary-categories').querySelectorAll('.category-btn').forEach(btn => {
+  btn.classList.toggle('selected', (business.secondary_categories || []).includes(btn.dataset.value));
+}); $('#business-status').value = business.status || 'draft'; $('#form-message').textContent = ''; $('#profile-panel').scrollIntoView({ behavior: 'smooth' });
 }
 
 function validUrl(value) { return !value || /^https?:\/\/[^\s]+$/i.test(value); }
@@ -349,7 +351,7 @@ function collectBusinessForm(previous) {
   return {
     id: state.editingId || `business-${Date.now()}`, owner_id: currentUser.id,
     name: $('#business-name').value.trim(), category: $('#business-category').value,
-    secondaryCategories: [...$('#business-secondary-categories').selectedOptions].map((option) => option.value),
+    secondaryCategories: [...$('#business-secondary-categories').querySelectorAll('.category-btn.selected')].map(btn => btn.dataset.value),
     description: $('#business-description').value.trim(), location: $('#business-location').value.trim(),
     address: $('#business-address').value.trim(), latitude: $('#business-latitude').value ? Number($('#business-latitude').value) : null,
     longitude: $('#business-longitude').value ? Number($('#business-longitude').value) : null, hours: $('#business-hours').value.trim(),
@@ -369,7 +371,11 @@ function handleBusinessSubmit(event) {
   const previous = state.businesses.find((item) => item.id === id);
   const business = collectBusinessForm(previous);
   business.id = id;
+  // Validate required fields (name, description, location already required)
   if (!business.name || !business.description || !business.location) { $('#form-message').textContent = 'Preencha nome, descrição e localização.'; return; }
+  // Validate required logo and cover images
+  if (!state.logoData && !(previous && previous.logo)) { $('#form-message').textContent = 'É obrigatório inserir um logo.'; return; }
+  if (!state.coverData && !(previous && previous.cover)) { $('#form-message').textContent = 'É obrigatório inserir um banner.'; return; }
   if (!validPhone(business.phone) || !validPhone($('#business-whatsapp').value) || ![business.instagram, business.map, business.order].every(validUrl)) { $('#form-message').textContent = 'Verifique telefone e URLs informados.'; return; }
   if (![business.latitude, business.longitude].every((value) => value === null || Number.isFinite(value))) { $('#form-message').textContent = 'Latitude e longitude inválidas.'; return; }
   const logoData = state.logoData;
@@ -498,9 +504,17 @@ if ($('#auth-form')) $('#auth-form').addEventListener('submit', async (event) =>
     if (authMode === 'reset') {
       const { error } = await updatePassword(password);
       if (error) throw error;
-      $('#auth-message').textContent = 'Senha alterada com sucesso.';
+      $('#auth-message').textContent = 'Senha alterada com sucesso!';
       history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-      setTimeout(() => { closeAuth(); showAdmin(); }, 600);
+      setTimeout(async () => {
+        await signOut().catch(() => {});
+        currentUser = null;
+        showPublic();
+        configureAuthForm('signin');
+        $('#auth-password').value = '';
+        $('#auth-message').textContent = 'Senha alterada com sucesso! Faça login com sua nova senha.';
+        showAuth();
+      }, 1500);
       return;
     }
     if (authMode === 'forgot') {
@@ -541,7 +555,13 @@ dataReady.then(async () => {
   }
   if (document.body.dataset.page === 'admin') {
     $('#business-category').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
-    $('#business-secondary-categories').innerHTML = categories.map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
+    $('#business-secondary-categories').innerHTML = categories.map((category) => `<button type="button" class="category-btn" data-value="${category.name}">${category.name}</button>`).join('');
+// Toggle selection on click
+$('#business-secondary-categories').addEventListener('click', (e) => {
+  const btn = e.target.closest('.category-btn');
+  if (!btn) return;
+  btn.classList.toggle('selected');
+});
     currentUser = await getCurrentUser();
     if (isRecoveryFlow) {
       configureAuthForm('reset');
