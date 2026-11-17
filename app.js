@@ -4,15 +4,15 @@ const STORAGE_KEY = 'procure-aonde-data-v1';
 const VISITOR_KEY = 'procure-aonde-visitor-id';
 
 const categories = [
-  { name: 'Alimentação', icon: '🍴', tone: 'food' },
-  { name: 'Beleza', icon: '✦', tone: 'beauty' },
-  { name: 'Saúde', icon: '♡', tone: 'health' },
-  { name: 'Manutenção', icon: '⌁', tone: 'home' },
-  { name: 'Transporte', icon: '⌖', tone: 'transport' },
-  { name: 'Educação', icon: '▣', tone: 'education' },
-  { name: 'Eventos', icon: '♢', tone: 'events' },
-  { name: 'Lojas', icon: '▤', tone: 'shops' },
-  { name: 'Serviços profissionais', icon: '◆', tone: 'professional' },
+  { name: 'Alimentação', icon: '<img src="assets/icons/alimentacao.png" alt="Alimentação" class="category-icon">', tone: 'food' },
+  { name: 'Beleza', icon: '<img src="assets/icons/beleza.png" alt="Beleza" class="category-icon">', tone: 'beauty' },
+  { name: 'Saúde', icon: '<img src="assets/icons/saude.png" alt="Saúde" class="category-icon"/>', tone: 'health' },
+  { name: 'Manutenção', icon: '<img src="assets/icons/manutecao.png" alt="Manutenção" class="category-icon">', tone: 'home' },
+  { name: 'Transporte', icon: '<img src="assets/icons/transporte.png" alt="Transporte" class="category-icon">', tone: 'transport' },
+  { name: 'Educação', icon: '<img src="assets/icons/educacao.png" alt="Educação" class="category-icon">', tone: 'education' },
+  { name: 'Eventos', icon: '<img src="assets/icons/eventos.png" alt="Eventos" class="category-icon">', tone: 'events' },
+  { name: 'Lojas', icon: '<img src="assets/icons/lojas.png" alt="Lojas" class="category-icon">', tone: 'shops' },
+  { name: 'Serviços profissionais', icon: '<img src="assets/icons/servicos-proficionais.png" alt="Serviços profissionais" class="category-icon">', tone: 'professional' },
 ];
 
 const starterBusinesses = [];
@@ -142,9 +142,9 @@ function businessCard(business) {
   const category = categoryInfo(business.category);
   const avatar = business.logo ? `<span class="business-avatar business-logo-avatar"><img src="${escapeHtml(business.logo)}" alt="Logo de ${escapeHtml(business.name)}" /></span>` : `<span class="business-avatar">${iconFor(business)}</span>`;
   const actions = [
-    business.whatsapp && `<a class="action-button main" href="${escapeHtml(business.whatsapp)}" target="_blank" rel="noopener" data-interaction="whatsapp" data-id="${business.id}">WhatsApp</a>`,
-    business.instagram && `<a class="action-button" href="${escapeHtml(business.instagram)}" target="_blank" rel="noopener" data-interaction="instagram" data-id="${business.id}">Instagram</a>`,
-    business.map && `<a class="action-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${business.id}">Localização</a>`,
+    business.whatsapp && `<a class="action-button main" href="${escapeHtml(business.whatsapp)}" target="_blank" rel="noopener" data-interaction="whatsapp" data-id="${business.id}"><img src="assets/icons/whatsapp.png" alt="WhatsApp" class="category-icon"/> WhatsApp</a>`,
+    business.instagram && `<a class="action-button" href="${escapeHtml(business.instagram)}" target="_blank" rel="noopener" data-interaction="instagram" data-id="${business.id}"><img src="assets/icons/instagram.png" alt="Instagram" class="category-icon"/> Instagram</a>`,
+    business.map && `<a class="action-button" href="${escapeHtml(business.map)}" target="_blank" rel="noopener" data-interaction="location" data-id="${business.id}"><img src="assets/icons/localizacao.png" alt="Localização" class="category-icon"/> Localização</a>`,
   ].filter(Boolean).join('');
   return `<article class="business-card"><button class="business-cover ${category.tone}" data-business="${business.id}" aria-label="Ver detalhes de ${escapeHtml(business.name)}">${avatar}</button><div class="business-body"><span class="business-category">${escapeHtml(business.category)}</span><h3>${escapeHtml(business.name)}</h3><p class="business-description">${escapeHtml(business.description)}</p><div class="business-meta"><span>⌖ ${escapeHtml(business.address || business.location)}</span><span>◷ ${escapeHtml(business.hours || 'Consulte')}</span></div><div class="business-actions">${actions}<button class="action-button" data-business="${business.id}">Detalhes</button></div></div></article>`;
 }

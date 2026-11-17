@@ -44,7 +44,7 @@ h1,h2,h3 { font-family:'Space Grotesk',sans-serif; }
 .text-button { color:var(--blue); }
 .category-card { min-height:126px; padding:20px 10px; border:1px solid #f0f1f5; border-radius:14px; background:#fff; color:var(--ink); box-shadow:var(--shadow); transition:.2s; }
 .category-card:hover,.category-card.active { color:var(--blue); transform:translateY(-3px); border-color:#cdd5ff; }
-.category-icon { display:block; font-size:30px; margin-bottom:13px; }
+.category-icon { display:inline-block; width:20px; height:20px; vertical-align:middle; margin-right:4px; }
 .category-card strong { display:block; font-size:13px; }
 .results-section { padding-top:86px; }
 .results-heading { align-items:center; }
